@@ -3,23 +3,20 @@ pragma solidity ^0.8.10;
 
 import {IMetadataRenderer} from "../interfaces/IMetadataRenderer.sol";
 
-/**
-
- ________   _____   ____    ______      ____
-/\_____  \ /\  __`\/\  _`\ /\  _  \    /\  _`\
-\/____//'/'\ \ \/\ \ \ \L\ \ \ \L\ \   \ \ \/\ \  _ __   ___   _____     ____
-     //'/'  \ \ \ \ \ \ ,  /\ \  __ \   \ \ \ \ \/\`'__\/ __`\/\ '__`\  /',__\
-    //'/'___ \ \ \_\ \ \ \\ \\ \ \/\ \   \ \ \_\ \ \ \//\ \L\ \ \ \L\ \/\__, `\
-    /\_______\\ \_____\ \_\ \_\ \_\ \_\   \ \____/\ \_\\ \____/\ \ ,__/\/\____/
-    \/_______/ \/_____/\/_/\/ /\/_/\/_/    \/___/  \/_/ \/___/  \ \ \/  \/___/
-                                                                 \ \_\
-                                                                  \/_/
-
-*/
-
 /// @notice Interface for ZORA Drops contract
-interface IERC721Drop {
+interface ICTGPlayerNFT {
     // Access errors
+
+    error WrongValueSent(uint256 sent, uint256 expected);
+
+    /// @notice Called when an invalid transfer hook is attempted to be set
+    error InvalidTransferHook();
+    error ContractIdentityWrong();
+    error NotAllowedToUpgrade();
+
+    error MintReferralNotSupported();
+
+    error ZeroFundsRecipientNotAllowed();
 
     /// @notice Only admin can access this function
     error Access_OnlyAdmin();
@@ -74,6 +71,8 @@ interface IERC721Drop {
     error Admin_UnableToFinalizeNotOpenEdition();
     /// @notice Cannot reserve every mint for admin
     error InvalidMintSchedule();
+
+    event SetNewTransferHook(address _newTransferHook);
 
     /// @notice Event emitted for mint fee payout
     /// @param mintFeeAmount amount of the mint fee
@@ -283,4 +282,6 @@ interface IERC721Drop {
     /// @dev Getter for admin role associated with the contract to handle metadata
     /// @return boolean if address is admin
     function isAdmin(address user) external view returns (bool);
+
+    function contractName() external returns (string memory name);
 }

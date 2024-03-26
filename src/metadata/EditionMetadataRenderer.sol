@@ -2,9 +2,9 @@
 pragma solidity ^0.8.10;
 
 import {IMetadataRenderer} from "../interfaces/IMetadataRenderer.sol";
-import {IERC721Drop} from "../interfaces/IERC721Drop.sol";
-import {IERC721MetadataUpgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC721MetadataUpgradeable.sol";
-import {IERC2981Upgradeable} from "@openzeppelin/contracts-upgradeable/interfaces/IERC2981Upgradeable.sol";
+import {ICTGPlayerNFT} from "../interfaces/ICTGPlayerNFT.sol";
+import {IERC721Metadata} from "@openzeppelin/contracts/interfaces/IERC721Metadata.sol";
+import {IERC2981} from "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import {NFTMetadataRenderer} from "../utils/NFTMetadataRenderer.sol";
 import {MetadataRenderAdminCheck} from "./MetadataRenderAdminCheck.sol";
 
@@ -12,7 +12,7 @@ interface DropConfigGetter {
     function config()
         external
         view
-        returns (IERC721Drop.Configuration memory config);
+        returns (ICTGPlayerNFT.Configuration memory config);
 }
 
 /// @notice EditionMetadataRenderer for editions support
@@ -118,12 +118,12 @@ contract EditionMetadataRenderer is
     function contractURI() external view override returns (string memory) {
         address target = msg.sender;
         TokenEditionInfo storage editionInfo = tokenInfos[target];
-        IERC721Drop.Configuration memory config = DropConfigGetter(target)
+        ICTGPlayerNFT.Configuration memory config = DropConfigGetter(target)
             .config();
 
         return
             NFTMetadataRenderer.encodeContractURIJSON({
-                name: IERC721MetadataUpgradeable(target).name(),
+                name: IERC721Metadata(target).name(),
                 description: editionInfo.description,
                 imageURI: editionInfo.imageURI,
                 animationURI: editionInfo.animationURI,
@@ -144,7 +144,7 @@ contract EditionMetadataRenderer is
         address target = msg.sender;
 
         TokenEditionInfo memory info = tokenInfos[target];
-        IERC721Drop media = IERC721Drop(target);
+        ICTGPlayerNFT media = ICTGPlayerNFT(target);
 
         uint256 maxSupply = media.saleDetails().maxSupply;
 
@@ -156,7 +156,7 @@ contract EditionMetadataRenderer is
 
         return
             NFTMetadataRenderer.createMetadataEdition({
-                name: IERC721MetadataUpgradeable(target).name(),
+                name: IERC721Metadata(target).name(),
                 description: info.description,
                 imageURI: info.imageURI,
                 animationURI: info.animationURI,

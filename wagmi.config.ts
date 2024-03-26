@@ -4,22 +4,22 @@ import { readdirSync, readFileSync } from 'fs';
 
 type ContractNames =
   | 'DropMetadataRenderer'
-  | 'EditionMetadataRenderer'
-  | 'FactoryUpgradeGate'
-  | 'ERC721Drop'
-  | 'ZoraNFTCreatorProxy'
-  | 'ZoraNFTCreatorV1';
+  | 'TransferPauserExtension'
+  | 'CTGPlayerNFTProxy'
+  | 'CTGPlayerNFT';
 
 type Address = `0x${string}`;
 
 const contractFilesToInclude: ContractNames[] = [
   'DropMetadataRenderer',
-  'FactoryUpgradeGate',
-  'EditionMetadataRenderer',
-  'ERC721Drop',
-  'ZoraNFTCreatorProxy',
-  'ZoraNFTCreatorV1'
+  'CTGPlayerNFT',
+  'TransferPauserExtension',
+  'CTGPlayerNFTProxy',
+  'DropMetadataRenderer'
 ];
+
+const BASE_CHAIN_ID = 8453;
+const BASE_SEPOLIA_CHAIN_ID = 84532;
 
 type Addresses = {
   [key in ContractNames]?: {
@@ -29,8 +29,6 @@ type Addresses = {
 
 const getAddresses = () => {
   const addresses: Addresses = {};
-
-  const addressesFiles = readdirSync('./addresses');
 
   const addAddress = (
     contractName: ContractNames,
@@ -44,39 +42,10 @@ const getAddresses = () => {
     addresses[contractName]![chainId] = address;
   };
 
-  for (const addressesFile of addressesFiles) {
-    const jsonAddress = JSON.parse(
-      readFileSync(`./addresses/${addressesFile}`, 'utf-8')
-    ) as {
-      DROP_METADATA_RENDERER: Address;
-      EDITION_METADATA_RENDERER: Address;
-      ERC721DROP_IMPL: Address;
-      FACTORY_UPGRADE_GATE: Address;
-      ZORA_NFT_CREATOR_PROXY: Address;
-      ZORA_NFT_CREATOR_V1_IMPL: Address;
-    };
-
-    const chainId = parseInt(addressesFile.split('.')[0]);
-
-    // addAddress(
-    //   "DropMetadataRenderer",
-    //   chainId,
-    //   jsonAddress.DROP_METADATA_RENDERER
-    // );
-    // addAddress(
-    //   "EditionMetadataRenderer",
-    //   chainId,
-    //   jsonAddress.EDITION_METADATA_RENDERER
-    // );
-    // addAddress("ERC721Drop", chainId, jsonAddress.ERC721DROP_IMPL);
-    // addAddress("FactoryUpgradeGate", chainId, jsonAddress.FACTORY_UPGRADE_GATE);
-    addAddress(
-      'ZoraNFTCreatorV1',
-      chainId,
-      jsonAddress.ZORA_NFT_CREATOR_PROXY
-    );
-    // addAddress("ZoraNFTCreatorV1", chainId, jsonAddress.ZORA_NFT_CREATOR_V1_IMPL);
-  }
+  addAddress('DropMetadataRenderer', BASE_SEPOLIA_CHAIN_ID, '0xf643704CfB538aF53Dea5DFE9B1e795b9abf3bBf');
+  addAddress('CTGPlayerNFT', BASE_SEPOLIA_CHAIN_ID, '0xD3ebe4E02Fa46b54b60f695b8020a102734fe17C');
+  addAddress('CTGPlayerNFTProxy', BASE_SEPOLIA_CHAIN_ID, '0xa80f737cC5BFdD1f1bD0e968F7deD6b624eA8935');
+  addAddress('TransferPauserExtension', BASE_SEPOLIA_CHAIN_ID, '0xb62d3B471d55E9fBae2a6ec71F84f2D3af715f92');
 
   return addresses;
 };

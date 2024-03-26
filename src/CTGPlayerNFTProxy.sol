@@ -5,7 +5,7 @@ import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.s
 
 
 /// @dev Zora NFT Creator Proxy Access Contract
-contract ZoraNFTCreatorProxy is ERC1967Proxy {
+contract CTGPlayerNFTProxy is ERC1967Proxy {
     constructor(address _logic, bytes memory _data)
         payable
         ERC1967Proxy(_logic, _data)

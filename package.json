@@ -1,8 +1,7 @@
 {
-  "name": "@zoralabs/zora-721-contracts",
-  "version": "1.15.4",
-  "description": "ZORA NFT Drops Contracts",
-  "author": "ZORA",
+  "name": "ctg-player-nft",
+  "version": "2.0.0",
+  "description": "CTG Player NFT (Forked from ZORA Drops)",
   "license": "MIT",
   "private": false,
   "type": "module",
@@ -27,13 +26,9 @@
     "bundle-configs": "node js-scripts/bundle-chainConfigs.mjs",
     "prettier": "npx prettier \"js-scripts/**/*.mjs\" \"package/**/*.ts\" \"wagmi.config.ts\" --check",
     "prettier:fix": "npm run prettier -- --write",
-    "wagmi": "wagmi generate",
-    "storage-inspect:check": "./script/storage-check.sh check ERC721Drop ERC721DropProxy FactoryUpgradeGate ZoraNFTCreatorProxy ZoraNFTCreatorV1",
-    "storage-inspect:generate": "./script/storage-check.sh generate ERC721Drop ERC721DropProxy FactoryUpgradeGate ZoraNFTCreatorProxy ZoraNFTCreatorV1",
-    "release": "yarn run prepack && changeset publish"
+    "wagmi": "wagmi generate"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.26.1",
     "@ethersproject/abi": "^5.7.0",
     "@ethersproject/address": "^5.7.0",
     "@ethersproject/bytes": "^5.7.0",
@@ -51,8 +46,10 @@
   },
   "dependencies": {
     "@dotenv/cli": "^2.2.2",
-    "@zoralabs/protocol-rewards": "^1.0.2",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts-upgradeable": "^5.0.2",
     "ds-test": "https://github.com/dapphub/ds-test#cd98eff28324bfac652e63a239a60632a761790b",
+    "erc721a-upgradeable": "^4.3.0",
     "forge-std": "https://github.com/foundry-rs/forge-std#cd7d533f9a0ee0ec02ad81e0a8f262bc4203c653"
   }
 }

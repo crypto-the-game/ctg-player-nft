@@ -5,15 +5,22 @@ import {EditionMetadataRenderer} from "../../src/metadata/EditionMetadataRendere
 import {MetadataRenderAdminCheck} from "../../src/metadata/MetadataRenderAdminCheck.sol";
 import {IMetadataRenderer} from "../../src/interfaces/IMetadataRenderer.sol";
 import {DropMockBase} from "./DropMockBase.sol";
-import {IERC721Drop} from "../../src/interfaces/IERC721Drop.sol";
+import {ICTGPlayerNFT} from "../../src/interfaces/ICTGPlayerNFT.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract IERC721OnChainDataMock {
-    IERC721Drop.SaleDetails private saleDetailsInternal;
-    IERC721Drop.Configuration private configInternal;
+    ICTGPlayerNFT.SaleDetails private saleDetailsInternal;
+    ICTGPlayerNFT.Configuration private configInternal;
+
+    /// @notice Sale details
+    /// @return ICTGPlayerNFT.SaleDetails sale information details
+    function saleDetails() external view returns (ICTGPlayerNFT.SaleDetails memory) {
+        return saleDetailsInternal;
+    }
+
 
     constructor(uint256 totalMinted, uint256 maxSupply) {
-        saleDetailsInternal = IERC721Drop.SaleDetails({
+        saleDetailsInternal = ICTGPlayerNFT.SaleDetails({
             publicSaleActive: false,
             presaleActive: false,
             publicSalePrice: 0,
@@ -27,7 +34,7 @@ contract IERC721OnChainDataMock {
             maxSupply: maxSupply
         });
 
-        configInternal = IERC721Drop.Configuration({
+        configInternal = ICTGPlayerNFT.Configuration({
             metadataRenderer: IMetadataRenderer(address(0x0)),
             editionSize: 12,
             royaltyBPS: 1000,
@@ -35,17 +42,10 @@ contract IERC721OnChainDataMock {
         });
     }
 
-    function name() external returns (string memory) {
+    function name() external pure returns (string memory) {
         return "MOCK NAME";
     }
 
-    function saleDetails() external returns (IERC721Drop.SaleDetails memory) {
-        return saleDetailsInternal;
-    }
-
-    function config() external returns (IERC721Drop.Configuration memory) {
-        return configInternal;
-    }
 }
 
 contract EditionMetadataRendererTest is Test {

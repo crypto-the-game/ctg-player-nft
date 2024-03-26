@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.10;
 
-import {StringsUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/StringsUpgradeable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IMetadataRenderer} from "../interfaces/IMetadataRenderer.sol";
 import {MetadataRenderAdminCheck} from "./MetadataRenderAdminCheck.sol";
 
@@ -146,7 +146,7 @@ contract DropMetadataRenderer is IMetadataRenderer, MetadataRenderAdminCheck {
             string(
                 abi.encodePacked(
                     info.base,
-                    StringsUpgradeable.toString(tokenId),
+                    Strings.toString(tokenId),
                     info.extension
                 )
             );

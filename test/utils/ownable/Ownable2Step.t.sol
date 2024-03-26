@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.17;
+pragma solidity ^0.8.17;
 
 import "forge-std/Test.sol";
 
@@ -84,7 +84,6 @@ contract Ownable2StepTest is Test {
     }
 
     function test_NotTransferOwnershipZero() public {
-        address newOwner = address(0x99);
         assertEq(ownedContract.pendingOwner(), address(0x0));
         assertEq(ownedContract.owner(), defaultOwner);
         vm.prank(defaultOwner);

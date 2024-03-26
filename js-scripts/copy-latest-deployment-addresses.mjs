@@ -6,7 +6,7 @@ async function copyEnvironmentRunFiles(isDeploy) {
   const latestFiles = await glob(
     isDeploy
       ? "broadcast/Deploy.s.sol/*/run-latest.json"
-      : "broadcast/UpgradeERC721DropFactory.s.sol/*/run-latest.json"
+      : "broadcast/UpgradeCTGPlayerNFTFactory.s.sol/*/run-latest.json"
   );
 
   for (const file of latestFiles) {

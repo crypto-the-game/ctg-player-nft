@@ -4,18 +4,15 @@ pragma solidity ^0.8.10;
 import {Test} from "forge-std/Test.sol";
 import {IERC721AUpgradeable} from "erc721a-upgradeable/IERC721AUpgradeable.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
-import {ProtocolRewards} from "@zoralabs/protocol-rewards/src/ProtocolRewards.sol";
-import {RewardsSettings} from "@zoralabs/protocol-rewards/src/abstract/RewardSplits.sol";
 
-import {ERC721Drop} from "../src/ERC721Drop.sol";
+import {CTGPlayerNFT} from "../src/CTGPlayerNFT.sol";
 import {DummyMetadataRenderer} from "./utils/DummyMetadataRenderer.sol";
 import {MockUser} from "./utils/MockUser.sol";
 import {IMetadataRenderer} from "../src/interfaces/IMetadataRenderer.sol";
-import {IERC721Drop} from "../src/interfaces/IERC721Drop.sol";
-import {FactoryUpgradeGate} from "../src/FactoryUpgradeGate.sol";
-import {ERC721DropProxy} from "../src/ERC721DropProxy.sol";
+import {ICTGPlayerNFT} from "../src/interfaces/ICTGPlayerNFT.sol";
+import {CTGPlayerNFTProxy} from "../src/CTGPlayerNFTProxy.sol";
 
-contract ERC721DropTest is Test {
+contract CTGPlayerNFTTest is Test {
     /// @notice Event emitted when the funds are withdrawn from the minting contract
     /// @param withdrawnBy address that issued the withdraw
     /// @param withdrawnTo address that the funds were withdrawn to
@@ -34,11 +31,9 @@ contract ERC721DropTest is Test {
     address internal createReferral;
     address internal zora;
 
-    ProtocolRewards protocolRewards;
-    ERC721Drop zoraNFTBase;
+    CTGPlayerNFT zoraNFTBase;
     MockUser mockUser;
     DummyMetadataRenderer public dummyRenderer = new DummyMetadataRenderer();
-    FactoryUpgradeGate public factoryUpgradeGate;
     address public constant DEFAULT_OWNER_ADDRESS = address(0x23499);
     address payable public constant DEFAULT_FUNDS_RECIPIENT_ADDRESS = payable(address(0x21303));
     address payable public constant DEFAULT_ZORA_DAO_ADDRESS = payable(address(0x999));
@@ -68,8 +63,7 @@ contract ERC721DropTest is Test {
             _royaltyBPS: 800,
             _setupCalls: setupCalls,
             _metadataRenderer: dummyRenderer,
-            _metadataRendererInit: "",
-            _createReferral: DEFAULT_CREATE_REFERRAL
+            _metadataRendererInit: ""
         });
 
         _;
@@ -86,8 +80,7 @@ contract ERC721DropTest is Test {
             _royaltyBPS: 800,
             _setupCalls: setupCalls,
             _metadataRenderer: dummyRenderer,
-            _metadataRendererInit: "",
-            _createReferral: initCreateReferral
+            _metadataRendererInit: ""
         });
 
         _;
@@ -100,38 +93,21 @@ contract ERC721DropTest is Test {
         createReferral = makeAddr("createReferral");
         zora = makeAddr("zora");
 
-        protocolRewards = new ProtocolRewards();
-
-        vm.prank(DEFAULT_ZORA_DAO_ADDRESS);
-        factoryUpgradeGate = new FactoryUpgradeGate(UPGRADE_GATE_ADMIN_ADDRESS);
-
         vm.prank(DEFAULT_ZORA_DAO_ADDRESS);
         impl = address(
-            new ERC721Drop({
-                _zoraERC721TransferHelper: address(0x1234),
-                _factoryUpgradeGate: factoryUpgradeGate,
-                _mintFeeAmount: mintFee,
-                _mintFeeRecipient: mintFeeRecipient,
-                _protocolRewards: address(protocolRewards)
-            })
+            new CTGPlayerNFT()
         );
-        address payable newDrop = payable(address(new ERC721DropProxy(impl, "")));
-        zoraNFTBase = ERC721Drop(newDrop);
+        address payable newDrop = payable(address(new CTGPlayerNFTProxy(impl, "")));
+        zoraNFTBase = CTGPlayerNFT(newDrop);
     }
 
     modifier withFactory() {
         vm.prank(DEFAULT_ZORA_DAO_ADDRESS);
         impl = address(
-            new ERC721Drop({
-                _zoraERC721TransferHelper: address(0x1234),
-                _factoryUpgradeGate: factoryUpgradeGate,
-                _mintFeeAmount: mintFee,
-                _mintFeeRecipient: mintFeeRecipient,
-                _protocolRewards: address(protocolRewards)
-            })
+            new CTGPlayerNFT()
         );
-        address payable newDrop = payable(address(new ERC721DropProxy(impl, "")));
-        zoraNFTBase = ERC721Drop(newDrop);
+        address payable newDrop = payable(address(new CTGPlayerNFTProxy(impl, "")));
+        zoraNFTBase = CTGPlayerNFT(newDrop);
 
         _;
     }
@@ -162,16 +138,14 @@ contract ERC721DropTest is Test {
             _royaltyBPS: 800,
             _setupCalls: setupCalls,
             _metadataRenderer: dummyRenderer,
-            _metadataRendererInit: "",
-            _createReferral: DEFAULT_CREATE_REFERRAL
-        });
+            _metadataRendererInit: ""        });
     }
 
     // Uncomment when this bug is fixed.
     //
     // function test_InitFailsTooHighRoyalty() public {
     //     bytes[] memory setupCalls = new bytes[](0);
-    //     vm.expectRevert(abi.encodeWithSelector(IERC721Drop.Setup_RoyaltyPercentageTooHigh.selector, 8000));
+    //     vm.expectRevert(abi.encodeWithSelector(ICTGPlayerNFT.Setup_RoyaltyPercentageTooHigh.selector, 8000));
     //     zoraNFTBase.initialize({
     //         _contractName: "Test NFT",
     //         _contractSymbol: "TNFT",
@@ -231,9 +205,6 @@ contract ERC721DropTest is Test {
         assertEq(zoraNFTBase.saleDetails().totalMinted, purchaseQuantity);
         require(zoraNFTBase.ownerOf(1) == address(456), "owner is wrong for new minted token");
         assertEq(address(zoraNFTBase).balance, paymentAmount - protocolFee);
-        assertEq(address(protocolRewards).balance, protocolFee);
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), 0.000444 ether * purchaseQuantity);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), 0.000333 ether * purchaseQuantity);
     }
 
     function test_PurchaseWithValue(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
@@ -263,10 +234,7 @@ contract ERC721DropTest is Test {
         require(zoraNFTBase.ownerOf(1) == address(456), "owner is wrong for new minted token");
 
         assertEq(address(zoraNFTBase).balance, paymentAmount - zoraFee);
-        assertEq(address(protocolRewards).balance, zoraFee);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), 0.000666 ether * purchaseQuantity);
         assertEq(address(zoraNFTBase).balance, uint256(salePrice) * uint256(purchaseQuantity));
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), 0.000111 ether * uint256(purchaseQuantity));
     }
 
     function test_PurchaseWithComment(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
@@ -289,6 +257,32 @@ contract ERC721DropTest is Test {
         vm.expectEmit(true, true, true, true);
         emit MintComment(address(456), address(zoraNFTBase), 0, purchaseQuantity, "test comment");
         zoraNFTBase.purchaseWithComment{value: paymentAmount}(purchaseQuantity, "test comment");
+    }
+
+    function test_PurchaseWithCommentLimitsPurchaseNumber() public setupZoraNFTBase(10) {
+        uint104 salePrice = 0.01 ether;
+        uint32 purchaseQuantity = 23;
+
+        vm.prank(DEFAULT_OWNER_ADDRESS);
+        zoraNFTBase.setSaleConfiguration({
+            publicSaleStart: 0,
+            publicSaleEnd: type(uint64).max,
+            presaleStart: 0,
+            presaleEnd: 0,
+            publicSalePrice: salePrice,
+            maxSalePurchasePerAddress: purchaseQuantity + 1,
+            presaleMerkleRoot: bytes32(0)
+        });
+
+        vm.deal(collector, 10000 ether);
+        vm.prank(collector);
+        zoraNFTBase.purchaseWithComment{value: salePrice * 23}({
+            quantity: 23, 
+            comment: "testing"
+        });
+
+        assertEq(zoraNFTBase.balanceOf(collector), 23);
+
     }
 
     function test_PurchaseWithRecipient(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
@@ -372,116 +366,6 @@ contract ERC721DropTest is Test {
         zoraNFTBase.purchaseWithRecipient{value: paymentAmount}(recipient, purchaseQuantity, "");
     }
 
-    function test_FreeMintRewards(uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
-        vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
-
-        vm.prank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0,
-            maxSalePurchasePerAddress: purchaseQuantity + 1,
-            presaleMerkleRoot: bytes32(0)
-        });
-
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
-
-        RewardsSettings memory settings = zoraNFTBase.computeFreeMintRewards(purchaseQuantity);
-
-        vm.deal(collector, totalReward);
-        vm.prank(collector);
-        zoraNFTBase.mintWithRewards{value: totalReward}(collector, purchaseQuantity, "test comment", address(0));
-
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.creatorReward + settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward + settings.mintReferralReward + settings.createReferralReward);
-    }
-
-    function test_FreeMintRewardsWithMintReferral(uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
-        vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
-
-        vm.prank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0,
-            maxSalePurchasePerAddress: purchaseQuantity + 1,
-            presaleMerkleRoot: bytes32(0)
-        });
-
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
-
-        RewardsSettings memory settings = zoraNFTBase.computeFreeMintRewards(purchaseQuantity);
-
-        vm.deal(collector, totalReward);
-        vm.prank(collector);
-        zoraNFTBase.mintWithRewards{value: totalReward}(collector, purchaseQuantity, "test comment", mintReferral);
-
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.creatorReward + settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward + settings.createReferralReward);
-        assertEq(protocolRewards.balanceOf(mintReferral), settings.mintReferralReward);
-    }
-
-    function test_FreeMintRewardsWithCreateReferral(uint32 purchaseQuantity) public setupZoraNFTBaseWithCreateReferral(purchaseQuantity, createReferral) {
-        vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
-
-        vm.prank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0,
-            maxSalePurchasePerAddress: purchaseQuantity + 1,
-            presaleMerkleRoot: bytes32(0)
-        });
-
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
-
-        RewardsSettings memory settings = zoraNFTBase.computeFreeMintRewards(purchaseQuantity);
-
-        vm.deal(collector, totalReward);
-        vm.prank(collector);
-        zoraNFTBase.mintWithRewards{value: totalReward}(collector, purchaseQuantity, "test comment", address(0));
-
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.creatorReward + settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward + settings.mintReferralReward);
-        assertEq(protocolRewards.balanceOf(createReferral), settings.createReferralReward);
-    }
-
-    function test_FreeMintRewardsWithMintAndCreateReferrals(
-        uint32 purchaseQuantity
-    ) public setupZoraNFTBaseWithCreateReferral(purchaseQuantity, createReferral) {
-        vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
-
-        vm.prank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0,
-            maxSalePurchasePerAddress: purchaseQuantity + 1,
-            presaleMerkleRoot: bytes32(0)
-        });
-
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
-
-        RewardsSettings memory settings = zoraNFTBase.computeFreeMintRewards(purchaseQuantity);
-
-        vm.deal(collector, totalReward);
-        vm.prank(collector);
-        zoraNFTBase.mintWithRewards{value: totalReward}(collector, purchaseQuantity, "test comment", mintReferral);
-
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.creatorReward + settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward);
-        assertEq(protocolRewards.balanceOf(mintReferral), settings.mintReferralReward);
-        assertEq(protocolRewards.balanceOf(createReferral), settings.createReferralReward);
-    }
-
     function testRevert_FreeMintRewardsInsufficientEth(uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
         vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
 
@@ -498,66 +382,6 @@ contract ERC721DropTest is Test {
 
         vm.expectRevert(abi.encodeWithSignature("INVALID_ETH_AMOUNT()"));
         zoraNFTBase.mintWithRewards(collector, purchaseQuantity, "test comment", address(0));
-    }
-
-    function test_PaidMintRewards(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
-        vm.assume(salePrice > 0);
-        vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
-
-        vm.prank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: salePrice,
-            maxSalePurchasePerAddress: purchaseQuantity + 1,
-            presaleMerkleRoot: bytes32(0)
-        });
-
-        RewardsSettings memory settings = zoraNFTBase.computePaidMintRewards(purchaseQuantity);
-
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
-        uint256 totalSales = uint256(salePrice) * purchaseQuantity;
-        uint256 totalPayment = totalSales + totalReward;
-
-        vm.deal(collector, totalPayment);
-        vm.prank(collector);
-        zoraNFTBase.mintWithRewards{value: totalPayment}(collector, purchaseQuantity, "test comment", address(0));
-
-        assertEq(address(zoraNFTBase).balance, totalSales);
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward + settings.mintReferralReward + settings.createReferralReward);
-    }
-
-    function test_PaidMintRewardsWithMintReferral(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
-        vm.assume(salePrice > 0);
-        vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
-
-        vm.prank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: salePrice,
-            maxSalePurchasePerAddress: purchaseQuantity + 1,
-            presaleMerkleRoot: bytes32(0)
-        });
-
-        RewardsSettings memory settings = zoraNFTBase.computePaidMintRewards(purchaseQuantity);
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
-        uint256 totalSales = uint256(salePrice) * purchaseQuantity;
-        uint256 totalPayment = totalSales + totalReward;
-
-        vm.deal(collector, totalPayment);
-        vm.prank(collector);
-        zoraNFTBase.mintWithRewards{value: totalPayment}(collector, purchaseQuantity, "test comment", mintReferral);
-
-        assertEq(address(zoraNFTBase).balance, totalSales);
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward + settings.createReferralReward);
-        assertEq(protocolRewards.balanceOf(mintReferral), settings.mintReferralReward);
     }
 
     function test_PaidMintRewardsWithCreateReferral(
@@ -578,20 +402,14 @@ contract ERC721DropTest is Test {
             presaleMerkleRoot: bytes32(0)
         });
 
-        RewardsSettings memory settings = zoraNFTBase.computePaidMintRewards(purchaseQuantity);
-
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
         uint256 totalSales = uint256(salePrice) * purchaseQuantity;
-        uint256 totalPayment = totalSales + totalReward;
+        uint256 totalPayment = totalSales;
 
         vm.deal(collector, totalPayment);
         vm.prank(collector);
         zoraNFTBase.mintWithRewards{value: totalPayment}(collector, purchaseQuantity, "test comment", address(0));
 
         assertEq(address(zoraNFTBase).balance, totalSales);
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward + settings.mintReferralReward);
-        assertEq(protocolRewards.balanceOf(createReferral), settings.createReferralReward);
     }
 
     function test_PaidMintRewardsWithMintAndCreateReferrals(
@@ -612,9 +430,7 @@ contract ERC721DropTest is Test {
             presaleMerkleRoot: bytes32(0)
         });
 
-        RewardsSettings memory settings = zoraNFTBase.computePaidMintRewards(purchaseQuantity);
-
-        uint256 totalReward = zoraNFTBase.computeTotalReward(purchaseQuantity);
+        uint256 totalReward = 0;
         uint256 totalSales = uint256(salePrice) * purchaseQuantity;
         uint256 totalPayment = totalSales + totalReward;
 
@@ -623,10 +439,6 @@ contract ERC721DropTest is Test {
         zoraNFTBase.mintWithRewards{value: totalPayment}(collector, purchaseQuantity, "test comment", mintReferral);
 
         assertEq(address(zoraNFTBase).balance, totalSales);
-        assertEq(protocolRewards.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), settings.firstMinterReward);
-        assertEq(protocolRewards.balanceOf(mintFeeRecipient), settings.zoraReward);
-        assertEq(protocolRewards.balanceOf(mintReferral), settings.mintReferralReward);
-        assertEq(protocolRewards.balanceOf(createReferral), settings.createReferralReward);
     }
 
     function testRevert_PaidMintRewardsInsufficientEth(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
@@ -650,29 +462,20 @@ contract ERC721DropTest is Test {
 
     function test_UpgradeApproved() public setupZoraNFTBase(10) {
         address newImpl = address(
-            new ERC721Drop({
-                _zoraERC721TransferHelper: address(0x3333),
-                _factoryUpgradeGate: factoryUpgradeGate,
-                _mintFeeAmount: mintFee,
-                _mintFeeRecipient: mintFeeRecipient,
-                _protocolRewards: address(protocolRewards)
-            })
+            new CTGPlayerNFT()
         );
 
-        address[] memory lastImpls = new address[](1);
-        lastImpls[0] = impl;
-        vm.prank(UPGRADE_GATE_ADMIN_ADDRESS);
-        factoryUpgradeGate.registerNewUpgradePath({_newImpl: newImpl, _supportedPrevImpls: lastImpls});
         vm.prank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.upgradeTo(newImpl);
+        zoraNFTBase.grantRole(zoraNFTBase.UPGRADER_ROLE(), DEFAULT_OWNER_ADDRESS);
+        zoraNFTBase.upgradeToAndCall(newImpl, "");
     }
 
     function test_UpgradeFailsNotApproved() public setupZoraNFTBase(10) {
-        address newImpl = address(new ERC721Drop(address(0x3333), factoryUpgradeGate, mintFee, mintFeeRecipient, address(protocolRewards)));
+        address newImpl = address(new CTGPlayerNFT());
 
         vm.prank(DEFAULT_OWNER_ADDRESS);
-        vm.expectRevert(abi.encodeWithSelector(IERC721Drop.Admin_InvalidUpgradeAddress.selector, newImpl));
-        zoraNFTBase.upgradeTo(newImpl);
+        vm.expectRevert(abi.encodeWithSelector(ICTGPlayerNFT.Admin_InvalidUpgradeAddress.selector, newImpl));
+        zoraNFTBase.upgradeToAndCall(newImpl, "");
     }
 
     function test_PurchaseTime() public setupZoraNFTBase(10) {
@@ -693,7 +496,7 @@ contract ERC721DropTest is Test {
 
         vm.deal(address(456), 1 ether);
         vm.prank(address(456));
-        vm.expectRevert(IERC721Drop.Sale_Inactive.selector);
+        vm.expectRevert(ICTGPlayerNFT.Sale_Inactive.selector);
         zoraNFTBase.purchase{value: 0.1 ether + fee}(1);
 
         assertEq(zoraNFTBase.saleDetails().maxSupply, 10);
@@ -744,11 +547,11 @@ contract ERC721DropTest is Test {
         });
 
         bytes[] memory calls = new bytes[](2);
-        calls[0] = abi.encodeWithSelector(IERC721Drop.adminMint.selector, address(0x456), 1);
-        calls[1] = abi.encodeWithSelector(IERC721Drop.adminMint.selector, address(0x123), 3);
+        calls[0] = abi.encodeWithSelector(ICTGPlayerNFT.adminMint.selector, address(0x456), 1);
+        calls[1] = abi.encodeWithSelector(ICTGPlayerNFT.adminMint.selector, address(0x123), 3);
 
         vm.expectRevert(
-            abi.encodeWithSelector(IERC721Drop.Access_MissingRoleOrAdmin.selector, bytes32(0xf0887ba65ee2024ea881d91b74c2450ef19e1557f03bed3ea9f16b037cbe2dc9))
+            abi.encodeWithSelector(ICTGPlayerNFT.Access_MissingRoleOrAdmin.selector, bytes32(0xf0887ba65ee2024ea881d91b74c2450ef19e1557f03bed3ea9f16b037cbe2dc9))
         );
         zoraNFTBase.multicall(calls);
 
@@ -764,9 +567,9 @@ contract ERC721DropTest is Test {
     function test_MintMulticall() public setupZoraNFTBase(10) {
         vm.startPrank(DEFAULT_OWNER_ADDRESS);
         bytes[] memory calls = new bytes[](3);
-        calls[0] = abi.encodeWithSelector(IERC721Drop.adminMint.selector, DEFAULT_OWNER_ADDRESS, 5);
-        calls[1] = abi.encodeWithSelector(IERC721Drop.adminMint.selector, address(0x123), 3);
-        calls[2] = abi.encodeWithSelector(IERC721Drop.saleDetails.selector);
+        calls[0] = abi.encodeWithSelector(ICTGPlayerNFT.adminMint.selector, DEFAULT_OWNER_ADDRESS, 5);
+        calls[1] = abi.encodeWithSelector(ICTGPlayerNFT.adminMint.selector, address(0x123), 3);
+        calls[2] = abi.encodeWithSelector(ICTGPlayerNFT.saleDetails.selector);
         bytes[] memory results = zoraNFTBase.multicall(calls);
 
         (bool saleActive, bool presaleActive, uint256 publicSalePrice, , , , , , , , ) = abi.decode(
@@ -785,12 +588,12 @@ contract ERC721DropTest is Test {
     function test_UpdatePriceMulticall() public setupZoraNFTBase(10) {
         vm.startPrank(DEFAULT_OWNER_ADDRESS);
         bytes[] memory calls = new bytes[](3);
-        calls[0] = abi.encodeWithSelector(IERC721Drop.setSaleConfiguration.selector, 0.1 ether, 2, 0, type(uint64).max, 0, 0, bytes32(0));
-        calls[1] = abi.encodeWithSelector(IERC721Drop.adminMint.selector, address(0x123), 3);
-        calls[2] = abi.encodeWithSelector(IERC721Drop.adminMint.selector, address(0x123), 3);
+        calls[0] = abi.encodeWithSelector(ICTGPlayerNFT.setSaleConfiguration.selector, 0.1 ether, 2, 0, type(uint64).max, 0, 0, bytes32(0));
+        calls[1] = abi.encodeWithSelector(ICTGPlayerNFT.adminMint.selector, address(0x123), 3);
+        calls[2] = abi.encodeWithSelector(ICTGPlayerNFT.adminMint.selector, address(0x123), 3);
         bytes[] memory results = zoraNFTBase.multicall(calls);
 
-        IERC721Drop.SaleDetails memory saleDetails = zoraNFTBase.saleDetails();
+        ICTGPlayerNFT.SaleDetails memory saleDetails = zoraNFTBase.saleDetails();
 
         assertTrue(saleDetails.publicSaleActive);
         assertTrue(!saleDetails.presaleActive);
@@ -810,7 +613,7 @@ contract ERC721DropTest is Test {
     function test_MintWrongValue() public setupZoraNFTBase(10) {
         vm.deal(address(456), 1 ether);
         vm.prank(address(456));
-        vm.expectRevert(IERC721Drop.Sale_Inactive.selector);
+        vm.expectRevert(ICTGPlayerNFT.Sale_Inactive.selector);
         zoraNFTBase.purchase{value: 0.12 ether}(1);
         vm.prank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.setSaleConfiguration({
@@ -880,7 +683,7 @@ contract ERC721DropTest is Test {
         (, uint256 fee) = zoraNFTBase.zoraFeeForAmount(1);
         vm.deal(address(444), 1_000_000 ether);
         vm.prank(address(444));
-        vm.expectRevert(IERC721Drop.Purchase_TooManyForAddress.selector);
+        vm.expectRevert(ICTGPlayerNFT.Purchase_TooManyForAddress.selector);
         zoraNFTBase.purchase{value: (0.1 ether * (uint256(limit) + 1)) + (fee * (uint256(limit) + 1))}(uint256(limit) + 1);
 
         assertEq(zoraNFTBase.saleDetails().totalMinted, limit);
@@ -925,12 +728,12 @@ contract ERC721DropTest is Test {
         vm.assume(limit > 0);
         vm.startPrank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.adminMint(DEFAULT_OWNER_ADDRESS, limit);
-        vm.expectRevert(IERC721Drop.Mint_SoldOut.selector);
+        vm.expectRevert(ICTGPlayerNFT.Mint_SoldOut.selector);
         zoraNFTBase.adminMint(DEFAULT_OWNER_ADDRESS, 1);
     }
 
     function test_WithdrawNotAllowed() public setupZoraNFTBase(10) {
-        vm.expectRevert(IERC721Drop.Access_WithdrawNotAllowed.selector);
+        vm.expectRevert(ICTGPlayerNFT.Access_WithdrawNotAllowed.selector);
         zoraNFTBase.withdraw();
     }
 
@@ -950,7 +753,7 @@ contract ERC721DropTest is Test {
         vm.prank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.adminMint(address(0x1234), 2);
         vm.prank(DEFAULT_OWNER_ADDRESS);
-        vm.expectRevert(IERC721Drop.Admin_UnableToFinalizeNotOpenEdition.selector);
+        vm.expectRevert(ICTGPlayerNFT.Admin_UnableToFinalizeNotOpenEdition.selector);
         zoraNFTBase.finalizeOpenEdition();
     }
 
@@ -971,7 +774,7 @@ contract ERC721DropTest is Test {
         zoraNFTBase.adminMint(address(0x1234), 2);
         vm.prank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.finalizeOpenEdition();
-        vm.expectRevert(IERC721Drop.Mint_SoldOut.selector);
+        vm.expectRevert(ICTGPlayerNFT.Mint_SoldOut.selector);
         vm.prank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.adminMint(address(0x1234), 2);
         vm.expectRevert(abi.encodeWithSignature("INVALID_ETH_AMOUNT()"));
@@ -994,12 +797,12 @@ contract ERC721DropTest is Test {
     function test_EditionSizeZero() public setupZoraNFTBase(0) {
         address minter = address(0x32402);
         vm.startPrank(DEFAULT_OWNER_ADDRESS);
-        vm.expectRevert(IERC721Drop.Mint_SoldOut.selector);
+        vm.expectRevert(ICTGPlayerNFT.Mint_SoldOut.selector);
         zoraNFTBase.adminMint(DEFAULT_OWNER_ADDRESS, 1);
         zoraNFTBase.grantRole(zoraNFTBase.MINTER_ROLE(), minter);
         vm.stopPrank();
         vm.prank(minter);
-        vm.expectRevert(IERC721Drop.Mint_SoldOut.selector);
+        vm.expectRevert(ICTGPlayerNFT.Mint_SoldOut.selector);
         zoraNFTBase.adminMint(minter, 1);
 
         vm.prank(DEFAULT_OWNER_ADDRESS);
@@ -1102,147 +905,9 @@ contract ERC721DropTest is Test {
         vm.startPrank(address(0x99493));
         assertEq(dummyRenderer.someState(), "");
         bytes memory targetCall = abi.encodeWithSelector(DummyMetadataRenderer.updateSomeState.selector, "new state", address(zoraNFTBase));
-        vm.expectRevert(IERC721Drop.Access_OnlyAdmin.selector);
+        vm.expectRevert(ICTGPlayerNFT.Access_OnlyAdmin.selector);
         zoraNFTBase.callMetadataRenderer(targetCall);
         assertEq(dummyRenderer.someState(), "");
-    }
-
-    function test_SupplyRoyaltyMintScheduleCannotBeOne() public setupZoraNFTBase(100) {
-        vm.startPrank(DEFAULT_OWNER_ADDRESS);
-        vm.expectRevert(IERC721Drop.InvalidMintSchedule.selector);
-        zoraNFTBase.updateRoyaltyMintSchedule(1);
-    }
-
-    function test_SupplyRoyaltyPurchase(uint32 royaltyMintSchedule, uint32 editionSize, uint256 mintQuantity) public setupZoraNFTBase(editionSize) {
-        vm.assume(royaltyMintSchedule > 1 && royaltyMintSchedule <= editionSize && editionSize <= 100000 && mintQuantity > 0 && mintQuantity <= editionSize);
-        uint256 totalRoyaltyMintsForSale = editionSize / royaltyMintSchedule;
-        vm.assume(mintQuantity <= editionSize - totalRoyaltyMintsForSale);
-
-        vm.startPrank(DEFAULT_OWNER_ADDRESS);
-
-        zoraNFTBase.updateRoyaltyMintSchedule(royaltyMintSchedule);
-
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0.1 ether,
-            maxSalePurchasePerAddress: editionSize,
-            presaleMerkleRoot: bytes32(0)
-        });
-        vm.stopPrank();
-
-        uint256 totalRoyaltyMintsForPurchase = mintQuantity / (royaltyMintSchedule - 1);
-        totalRoyaltyMintsForPurchase = Math.min(totalRoyaltyMintsForPurchase, editionSize - mintQuantity);
-        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(mintQuantity);
-
-        uint256 paymentAmount = 0.1 ether * mintQuantity + zoraFee;
-        vm.deal(address(456), paymentAmount);
-
-        vm.startPrank(address(456));
-        zoraNFTBase.purchase{value: paymentAmount}(mintQuantity);
-
-        assertEq(zoraNFTBase.balanceOf(address(456)), mintQuantity);
-        assertEq(zoraNFTBase.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), totalRoyaltyMintsForPurchase);
-
-        vm.stopPrank();
-    }
-
-    function test_SupplyRoyaltyCleanNumbers() public setupZoraNFTBase(100) {
-        vm.startPrank(DEFAULT_OWNER_ADDRESS);
-
-        zoraNFTBase.updateRoyaltyMintSchedule(5);
-
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0.1 ether,
-            maxSalePurchasePerAddress: 100,
-            presaleMerkleRoot: bytes32(0)
-        });
-        vm.stopPrank();
-
-        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(80);
-        uint256 paymentAmount = 0.1 ether * 80 + zoraFee;
-        vm.deal(address(456), paymentAmount);
-
-        vm.startPrank(address(456));
-        zoraNFTBase.purchase{value: paymentAmount}(80);
-
-        assertEq(zoraNFTBase.balanceOf(address(456)), 80);
-        assertEq(zoraNFTBase.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), 20);
-
-        vm.stopPrank();
-    }
-
-    function test_SupplyRoyaltyEdgeCaseNumbers() public setupZoraNFTBase(137) {
-        vm.startPrank(DEFAULT_OWNER_ADDRESS);
-
-        zoraNFTBase.updateRoyaltyMintSchedule(3);
-
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0.1 ether,
-            maxSalePurchasePerAddress: 92,
-            presaleMerkleRoot: bytes32(0)
-        });
-        vm.stopPrank();
-
-        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(92);
-        uint256 paymentAmount = 0.1 ether * 92 + zoraFee;
-        vm.deal(address(456), paymentAmount);
-
-        vm.startPrank(address(456));
-        zoraNFTBase.purchase{value: paymentAmount}(92);
-
-        assertEq(zoraNFTBase.balanceOf(address(456)), 92);
-        assertEq(zoraNFTBase.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), 45);
-
-        vm.stopPrank();
-    }
-
-    function test_SupplyRoyaltyEdgeCaseNumbersOpenEdition() public setupZoraNFTBase(type(uint64).max) {
-        vm.startPrank(DEFAULT_OWNER_ADDRESS);
-
-        zoraNFTBase.updateRoyaltyMintSchedule(3);
-
-        zoraNFTBase.setSaleConfiguration({
-            publicSaleStart: 0,
-            publicSaleEnd: type(uint64).max,
-            presaleStart: 0,
-            presaleEnd: 0,
-            publicSalePrice: 0.1 ether,
-            maxSalePurchasePerAddress: 93,
-            presaleMerkleRoot: bytes32(0)
-        });
-        vm.stopPrank();
-
-        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(92);
-        uint256 paymentAmount = 0.1 ether * 92 + zoraFee;
-        vm.deal(address(456), paymentAmount);
-
-        vm.startPrank(address(456));
-        zoraNFTBase.purchase{value: paymentAmount}(92);
-
-        assertEq(zoraNFTBase.balanceOf(address(456)), 92);
-        assertEq(zoraNFTBase.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), 46);
-
-        (, zoraFee) = zoraNFTBase.zoraFeeForAmount(1);
-        paymentAmount = 0.1 ether + zoraFee;
-        vm.deal(address(456), paymentAmount);
-
-        zoraNFTBase.purchase{value: paymentAmount}(1);
-
-        assertEq(zoraNFTBase.balanceOf(address(456)), 93);
-        assertEq(zoraNFTBase.balanceOf(DEFAULT_FUNDS_RECIPIENT_ADDRESS), 46);
-
-        vm.stopPrank();
     }
 
     function test_EIP165() public view {
