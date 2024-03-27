@@ -5,6 +5,7 @@ import {ITransferHookExtension} from "../interfaces/ITransferHookExtension.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
+
 contract TransferPauserExtension is ITransferHookExtension, ERC165 {
     bytes32 immutable public GAME_CONTROLLER_ROLE = keccak256("GAME_CONTROLLER_ROLE");
     IAccessControl public immutable baseNFT;

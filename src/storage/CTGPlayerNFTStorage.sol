@@ -10,9 +10,6 @@ struct CTGPlayerNFTStorage {
     /// @notice Sales configuration
     ICTGPlayerNFT.SalesConfiguration salesConfig;
 
-    /// @dev Mapping for presale mint counts by address to allow public mint limit
-    mapping(address => uint256) presaleMintsByAddress;
-
     /// @notice Extension for transfer hook across the whole contract. Optional – disabled if set to address(0).
     address transferHookExtension;
 }

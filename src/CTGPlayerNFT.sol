@@ -41,7 +41,6 @@ import {PublicMulticall} from "./utils/PublicMulticall.sol";
 import {CTGPlayerNFTStorageBase, CTGPlayerNFTStorage} from "./storage/CTGPlayerNFTStorage.sol";
 
 /**
- *
  * @dev For drops: assumes 1. linear mint order, 2. max number of mints needs to be less than max_uint64
  *       (if you have more than 18 quintillion linear mints you should probably not be using this contract)
  * @notice Forked from ZORA drops for additional features
@@ -350,8 +349,9 @@ contract CTGPlayerNFT is
     function mintedPerAddress(address minter) external view override returns (ICTGPlayerNFT.AddressMintDetails memory) {
         return
             ICTGPlayerNFT.AddressMintDetails({
-                presaleMints: _getCTGPlayerNFTStorage().presaleMintsByAddress[minter],
-                publicMints: _numberMinted(minter) - _getCTGPlayerNFTStorage().presaleMintsByAddress[minter],
+                // Presale mints are disabled on this version of the contract
+                presaleMints: 0,
+                publicMints: _numberMinted(minter),
                 totalMints: _numberMinted(minter)
             });
     }
@@ -371,58 +371,6 @@ contract CTGPlayerNFT is
      *** ---------------------------------- ***
      ***/
 
-    //                       ,-.
-    //                       `-'
-    //                       /|\
-    //                        |                       ,----------.
-    //                       / \                      |CTGPlayerNFT|
-    //                     Caller                     `----+-----'
-    //                       |          purchase()         |
-    //                       | ---------------------------->
-    //                       |                             |
-    //                       |                             |
-    //          ___________________________________________________________
-    //          ! ALT  /  drop has no tokens left for caller to mint?      !
-    //          !_____/      |                             |               !
-    //          !            |    revert Mint_SoldOut()    |               !
-    //          !            | <----------------------------               !
-    //          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //          !~[noop]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //                       |                             |
-    //                       |                             |
-    //          ___________________________________________________________
-    //          ! ALT  /  public sale isn't active?        |               !
-    //          !_____/      |                             |               !
-    //          !            |    revert Sale_Inactive()   |               !
-    //          !            | <----------------------------               !
-    //          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //          !~[noop]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //                       |                             |
-    //                       |                             |
-    //          ___________________________________________________________
-    //          ! ALT  /  inadequate funds sent?           |               !
-    //          !_____/      |                             |               !
-    //          !            | revert Purchase_WrongPrice()|               !
-    //          !            | <----------------------------               !
-    //          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //          !~[noop]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //                       |                             |
-    //                       |                             |----.
-    //                       |                             |    | mint tokens
-    //                       |                             |<---'
-    //                       |                             |
-    //                       |                             |----.
-    //                       |                             |    | emit ICTGPlayerNFT.Sale()
-    //                       |                             |<---'
-    //                       |                             |
-    //                       | return first minted token ID|
-    //                       | <----------------------------
-    //                     Caller                     ,----+-----.
-    //                       ,-.                      |CTGPlayerNFT|
-    //                       `-'                      `----------'
-    //                       /|\
-    //                        |
-    //                       / \
     /**
       @dev This allows the user to purchase a edition edition
            at the given price in the contract.
@@ -431,7 +379,7 @@ contract CTGPlayerNFT is
     /// @param quantity quantity to purchase
     /// @return tokenId of the first token minted
     function purchase(uint256 quantity) external payable nonReentrant onlyPublicSaleActive returns (uint256) {
-        return _handleMintWithRewards(msg.sender, quantity, "", address(0));
+        return _handleMint(msg.sender, quantity, "");
     }
 
     /// @notice Purchase a quantity of tokens with a comment
@@ -439,7 +387,7 @@ contract CTGPlayerNFT is
     /// @param comment comment to include in the ICTGPlayerNFT.Sale event
     /// @return tokenId of the first token minted
     function purchaseWithComment(uint256 quantity, string calldata comment) external payable nonReentrant onlyPublicSaleActive returns (uint256) {
-        return _handleMintWithRewards(msg.sender, quantity, comment, address(0));
+        return _handleMint(msg.sender, quantity, comment);
     }
 
     /// @notice Purchase a quantity of tokens to a specified recipient, with an optional comment
@@ -452,29 +400,10 @@ contract CTGPlayerNFT is
         uint256 quantity,
         string calldata comment
     ) external payable nonReentrant onlyPublicSaleActive returns (uint256) {
-        return _handleMintWithRewards(recipient, quantity, comment, address(0));
+        return _handleMint(recipient, quantity, comment);
     }
 
-    /// @notice Mint a quantity of tokens with a comment that will pay out rewards
-    /// @param recipient recipient of the tokens
-    /// @param quantity quantity to purchase
-    /// @param comment comment to include in the ICTGPlayerNFT.Sale event
-    /// @param mintReferral The finder of the mint
-    /// @return tokenId of the first token minted
-    function mintWithRewards(
-        address recipient,
-        uint256 quantity,
-        string calldata comment,
-        address mintReferral
-    ) external payable nonReentrant canMintTokens(quantity) onlyPublicSaleActive returns (uint256) {
-        return _handleMintWithRewards(recipient, quantity, comment, mintReferral);
-    }
-
-    function _handleMintWithRewards(address recipient, uint256 quantity, string memory comment, address mintReferral) internal returns (uint256) {
-        if (mintReferral != address(0)) {
-            revert MintReferralNotSupported();
-        }
-
+    function _handleMint(address recipient, uint256 quantity, string memory comment) internal returns (uint256) {
         _requireCanPurchaseQuantity(recipient, quantity);
 
         uint256 salePrice = _getCTGPlayerNFTStorage().salesConfig.publicSalePrice;
@@ -501,74 +430,23 @@ contract CTGPlayerNFT is
         } while (quantity > 0);
     }
 
-    //                       ,-.
-    //                       `-'
-    //                       /|\
-    //                        |                             ,----------.
-    //                       / \                            |CTGPlayerNFT|
-    //                     Caller                           `----+-----'
-    //                       |         purchasePresale()         |
-    //                       | ---------------------------------->
-    //                       |                                   |
-    //                       |                                   |
-    //          _________________________________________________________________
-    //          ! ALT  /  drop has no tokens left for caller to mint?            !
-    //          !_____/      |                                   |               !
-    //          !            |       revert Mint_SoldOut()       |               !
-    //          !            | <----------------------------------               !
-    //          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //          !~[noop]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //                       |                                   |
-    //                       |                                   |
-    //          _________________________________________________________________
-    //          ! ALT  /  presale sale isn't active?             |               !
-    //          !_____/      |                                   |               !
-    //          !            |     revert Presale_Inactive()     |               !
-    //          !            | <----------------------------------               !
-    //          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //          !~[noop]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //                       |                                   |
-    //                       |                                   |
-    //          _________________________________________________________________
-    //          ! ALT  /  merkle proof unapproved for caller?    |               !
-    //          !_____/      |                                   |               !
-    //          !            | revert Presale_MerkleNotApproved()|               !
-    //          !            | <----------------------------------               !
-    //          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //          !~[noop]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //                       |                                   |
-    //                       |                                   |
-    //          _________________________________________________________________
-    //          ! ALT  /  inadequate funds sent?                 |               !
-    //          !_____/      |                                   |               !
-    //          !            |    revert Purchase_WrongPrice()   |               !
-    //          !            | <----------------------------------               !
-    //          !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //          !~[noop]~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~!
-    //                       |                                   |
-    //                       |                                   |----.
-    //                       |                                   |    | mint tokens
-    //                       |                                   |<---'
-    //                       |                                   |
-    //                       |                                   |----.
-    //                       |                                   |    | emit ICTGPlayerNFT.Sale()
-    //                       |                                   |<---'
-    //                       |                                   |
-    //                       |    return first minted token ID   |
-    //                       | <----------------------------------
-    //                     Caller                           ,----+-----.
-    //                       ,-.                            |CTGPlayerNFT|
-    //                       `-'                            `----------'
-    //                       /|\
-    //                        |
-    //                       / \
     /// @notice Merkle-tree based presale purchase function
     /// @param quantity quantity to purchase
     /// @param maxQuantity max quantity that can be purchased via merkle proof #
     /// @param pricePerToken price that each token is purchased at
     /// @param merkleProof proof for presale mint
     function purchasePresale(uint256 quantity, uint256 maxQuantity, uint256 pricePerToken, bytes32[] calldata merkleProof) external payable returns (uint256) {
-        return purchasePresaleWithRewards(quantity, maxQuantity, pricePerToken, merkleProof, "", address(0));
+        return _handlePurchasePresale(msg.sender, quantity, maxQuantity, pricePerToken, merkleProof, "");
+    }
+
+    /// @notice Merkle-tree based presale purchase function
+    /// @param recipient NFT recipient
+    /// @param quantity quantity to purchase
+    /// @param maxQuantity max quantity that can be purchased via merkle proof #
+    /// @param pricePerToken price that each token is purchased at
+    /// @param merkleProof proof for presale mint
+    function purchasePresaleWithRecipient(address recipient, uint256 quantity, uint256 maxQuantity, uint256 pricePerToken, bytes32[] calldata merkleProof) external payable returns (uint256) {
+        return _handlePurchasePresale(recipient, quantity, maxQuantity, pricePerToken, merkleProof, "");
     }
 
     /// @notice Merkle-tree based presale purchase function with a comment
@@ -583,53 +461,33 @@ contract CTGPlayerNFT is
         uint256 pricePerToken,
         bytes32[] calldata merkleProof,
         string calldata comment
-    ) external payable nonReentrant onlyPresaleActive returns (uint256) {
-        return purchasePresaleWithRewards(quantity, maxQuantity, pricePerToken, merkleProof, comment, address(0));
+    ) external payable returns (uint256) {
+        return _handlePurchasePresale(msg.sender, quantity, maxQuantity, pricePerToken, merkleProof, comment);
     }
 
-    /// @notice Merkle-tree based presale purchase function with a comment and protocol rewards
-    /// @param quantity quantity to purchase
-    /// @param maxQuantity max quantity that can be purchased via merkle proof #
-    /// @param pricePerToken price that each token is purchased at
-    /// @param merkleProof proof for presale mint
-    /// @param comment comment to include in the ICTGPlayerNFT.Sale event
-    /// @param mintReferral The facilitator of the mint
-    function purchasePresaleWithRewards(
+    function _handlePurchasePresale(
+        address recipient,
         uint256 quantity,
         uint256 maxQuantity,
         uint256 pricePerToken,
         bytes32[] calldata merkleProof,
-        string memory comment,
-        address mintReferral
-    ) public payable nonReentrant onlyPresaleActive returns (uint256) {
-        return _handlePurchasePresaleWithRewards(quantity, maxQuantity, pricePerToken, merkleProof, comment, mintReferral);
-    }
-
-    function _handlePurchasePresaleWithRewards(
-        uint256 quantity,
-        uint256 maxQuantity,
-        uint256 pricePerToken,
-        bytes32[] calldata merkleProof,
-        string memory comment,
-        address mintReferral
-    ) internal returns (uint256) {
+        string memory comment
+    ) internal nonReentrant onlyPresaleActive returns (uint256) {
         _requireCanMintQuantity(quantity);
 
         if (msg.value != pricePerToken * quantity) {
             revert WrongValueSent(msg.value, pricePerToken * quantity);
         }
 
-        address msgSender = _msgSender();
+        _requireMerkleApproval(recipient, maxQuantity, pricePerToken, merkleProof);
 
-        _requireMerkleApproval(msgSender, maxQuantity, pricePerToken, merkleProof);
+        _requireCanPurchasePresale(recipient, quantity, maxQuantity);
 
-        _requireCanPurchasePresale(msgSender, quantity, maxQuantity);
-
-        _mintNFTs(msgSender, quantity);
+        _mintNFTs(recipient, quantity);
 
         uint256 firstMintedTokenId = _lastMintedTokenId() - quantity;
 
-        _emitSaleEvents(msgSender, msgSender, quantity, pricePerToken, firstMintedTokenId, comment);
+        _emitSaleEvents(msg.sender, recipient, quantity, pricePerToken, firstMintedTokenId, comment);
 
         return firstMintedTokenId;
     }
@@ -1107,16 +965,16 @@ contract CTGPlayerNFT is
         // Any other number, the per address mint limit is that.
         if (
             salesConfigLocal.maxSalePurchasePerAddress != 0 &&
-            _numberMinted(recipient) + quantity - _getCTGPlayerNFTStorage().presaleMintsByAddress[recipient] > salesConfigLocal.maxSalePurchasePerAddress
+            // Change for CTG: public sale purchase per address _does not_ remove presale mint limit counts. The mint count is global.
+            _numberMinted(recipient) + quantity > salesConfigLocal.maxSalePurchasePerAddress
+            // _numberMinted(recipient) + quantity - _getCTGPlayerNFTStorage().presaleMintsByAddress[recipient] > salesConfigLocal.maxSalePurchasePerAddress
         ) {
             revert Purchase_TooManyForAddress();
         }
     }
 
     function _requireCanPurchasePresale(address recipient, uint256 quantity, uint256 maxQuantity) internal {
-        _getCTGPlayerNFTStorage().presaleMintsByAddress[recipient] += quantity;
-
-        if (_getCTGPlayerNFTStorage().presaleMintsByAddress[recipient] > maxQuantity) {
+        if (_numberMinted(recipient) > maxQuantity) {
             revert Presale_TooManyForAddress();
         }
     }
