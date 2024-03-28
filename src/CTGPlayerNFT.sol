@@ -405,6 +405,7 @@ contract CTGPlayerNFT is
 
     function _handleMint(address recipient, uint256 quantity, string memory comment) internal returns (uint256) {
         _requireCanPurchaseQuantity(recipient, quantity);
+        _requireCanMintQuantity(quantity);
 
         uint256 salePrice = _getCTGPlayerNFTStorage().salesConfig.publicSalePrice;
 
@@ -1022,6 +1023,7 @@ contract CTGPlayerNFT is
     ) public view override(IERC165, IERC721AUpgradeable, ERC721AUpgradeable, AccessControlUpgradeable) returns (bool) {
         return
             super.supportsInterface(interfaceId) ||
+            ERC721AUpgradeable.supportsInterface(interfaceId) ||
             type(IOwnable).interfaceId == interfaceId ||
             type(IERC2981).interfaceId == interfaceId ||
             // Because the EIP-4906 spec is event-based a numerically relevant interfaceId is used.

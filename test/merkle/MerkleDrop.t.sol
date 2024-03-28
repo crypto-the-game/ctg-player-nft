@@ -169,10 +169,9 @@ contract ZoraNFTBaseTest is Test {
         vm.expectRevert(ICTGPlayerNFT.Presale_TooManyForAddress.selector);
         zoraNFTBase.purchasePresale{value: (item.mintPrice + fee) * 1}(1, item.maxMint, item.mintPrice, item.proof);
 
-        zoraNFTBase.purchase{value: 0.1 ether + fee}(1);
-        require(zoraNFTBase.ownerOf(3) == address(item.user), "owner is wrong for new minted token");
         vm.expectRevert(ICTGPlayerNFT.Purchase_TooManyForAddress.selector);
         zoraNFTBase.purchase{value: 0.1 ether + fee}(1);
+        require(zoraNFTBase.ownerOf(2) == address(item.user), "owner is wrong for new minted token");
         vm.stopPrank();
     }
 
