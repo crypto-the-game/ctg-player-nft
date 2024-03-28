@@ -103,7 +103,7 @@ contract ZoraNFTBaseTest is Test {
         vm.deal(address(item.user), 1 ether);
         vm.startPrank(address(item.user));
 
-        vm.expectRevert(abi.encodeWithSignature("INVALID_ETH_AMOUNT()"));
+        vm.expectRevert(abi.encodeWithSignature("WrongValueSent(uint256,uint256)", item.mintPrice - 1, item.mintPrice));
         zoraNFTBase.purchasePresale{value: item.mintPrice - 1}(1, item.maxMint, item.mintPrice, item.proof);
         assertEq(zoraNFTBase.saleDetails().maxSupply, 10);
         assertEq(zoraNFTBase.saleDetails().totalMinted, 0);
@@ -131,7 +131,7 @@ contract ZoraNFTBaseTest is Test {
 
         vm.expectRevert(ICTGPlayerNFT.Presale_MerkleNotApproved.selector);
         item.proof[1] = item.proof[1] & bytes32(bytes4(0xcafecafe));
-        zoraNFTBase.purchasePresale{value: item.mintPrice - 1}(1, item.maxMint, item.mintPrice, item.proof);
+        zoraNFTBase.purchasePresale{value: item.mintPrice - 1}(1, item.maxMint, item.mintPrice - 1, item.proof);
         assertEq(zoraNFTBase.saleDetails().maxSupply, 10);
         assertEq(zoraNFTBase.saleDetails().totalMinted, 0);
         vm.stopPrank();

@@ -409,6 +409,10 @@ contract CTGPlayerNFT is
 
         uint256 salePrice = _getCTGPlayerNFTStorage().salesConfig.publicSalePrice;
 
+        if (msg.value != salePrice * quantity) {
+            revert WrongValueSent(msg.value, salePrice * quantity);
+        }
+
         _mintNFTs(recipient, quantity);
 
         uint256 firstMintedTokenId = _lastMintedTokenId() - quantity;
@@ -975,7 +979,7 @@ contract CTGPlayerNFT is
     }
 
     function _requireCanPurchasePresale(address recipient, uint256 quantity, uint256 maxQuantity) internal {
-        if (_numberMinted(recipient) > maxQuantity) {
+        if (_numberMinted(recipient) + quantity > maxQuantity) {
             revert Presale_TooManyForAddress();
         }
     }

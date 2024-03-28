@@ -40,10 +40,6 @@ contract CTGPlayerNFTTest is Test {
     address public constant UPGRADE_GATE_ADMIN_ADDRESS = address(0x942924224);
     address public constant mediaContract = address(0x123456);
     address public impl;
-    address payable public constant mintFeeRecipient = payable(address(0x11));
-    uint256 public constant mintFee = 777000000000000; // 0.000777 ETH
-    uint256 public constant TOTAL_REWARD_PER_MINT = 0.000999 ether;
-    address internal constant DEFAULT_CREATE_REFERRAL = address(0);
 
     struct Configuration {
         IMetadataRenderer metadataRenderer;
@@ -127,7 +123,7 @@ contract CTGPlayerNFTTest is Test {
         require(keccak256(bytes(name)) == keccak256(bytes("Test NFT")));
         require(keccak256(bytes(symbol)) == keccak256(bytes("TNFT")));
 
-        vm.expectRevert("Initializable: contract is already initialized");
+        vm.expectRevert(abi.encodeWithSignature("InvalidInitialization()"));
         bytes[] memory setupCalls = new bytes[](0);
         zoraNFTBase.initialize({
             _contractName: "Test NFT",
@@ -237,6 +233,31 @@ contract CTGPlayerNFTTest is Test {
         assertEq(address(zoraNFTBase).balance, uint256(salePrice) * uint256(purchaseQuantity));
     }
 
+    function test_PurchaseWithValueWrongPrice() public setupZoraNFTBase(100) {
+        uint256 purchaseQuantity = 2;
+        vm.prank(DEFAULT_OWNER_ADDRESS);
+        zoraNFTBase.setSaleConfiguration({
+            publicSaleStart: 0,
+            publicSaleEnd: type(uint64).max,
+            presaleStart: 0,
+            presaleEnd: 0,
+            publicSalePrice: 1 ether,
+            maxSalePurchasePerAddress: 1000,
+            presaleMerkleRoot: bytes32(0)
+        });
+
+        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(purchaseQuantity);
+        vm.deal(address(456), 1 ether);
+        vm.prank(address(456));
+        vm.expectRevert(abi.encodeWithSignature("WrongValueSent(uint256,uint256)", 1000000000000000000, 2000000000000000000));
+        zoraNFTBase.purchase{value: 1 ether}(purchaseQuantity);
+
+        assertEq(zoraNFTBase.saleDetails().maxSupply, 100);
+        assertEq(zoraNFTBase.saleDetails().totalMinted, 0);
+        vm.expectRevert(abi.encodeWithSignature("OwnerQueryForNonexistentToken()"));
+        zoraNFTBase.ownerOf(1);
+    }
+
     function test_PurchaseWithComment(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
         vm.assume(purchaseQuantity < 100 && purchaseQuantity > 0);
         vm.prank(DEFAULT_OWNER_ADDRESS);
@@ -276,12 +297,19 @@ contract CTGPlayerNFTTest is Test {
 
         vm.deal(collector, 10000 ether);
         vm.prank(collector);
+        vm.expectRevert(abi.encodeWithSignature("Mint_SoldOut()"));
         zoraNFTBase.purchaseWithComment{value: salePrice * 23}({
             quantity: 23, 
             comment: "testing"
         });
 
-        assertEq(zoraNFTBase.balanceOf(collector), 23);
+        vm.prank(collector);
+        zoraNFTBase.purchaseWithComment{value: salePrice * 10}({
+            quantity: 10, 
+            comment: "testing"
+        });
+
+        assertEq(zoraNFTBase.balanceOf(collector), 10);
 
     }
 
@@ -371,7 +399,7 @@ contract CTGPlayerNFTTest is Test {
             new CTGPlayerNFT()
         );
 
-        vm.prank(DEFAULT_OWNER_ADDRESS);
+        vm.startPrank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.grantRole(zoraNFTBase.UPGRADER_ROLE(), DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.upgradeToAndCall(newImpl, "");
     }
@@ -379,8 +407,8 @@ contract CTGPlayerNFTTest is Test {
     function test_UpgradeFailsNotApproved() public setupZoraNFTBase(10) {
         address newImpl = address(new CTGPlayerNFT());
 
-        vm.prank(DEFAULT_OWNER_ADDRESS);
-        vm.expectRevert(abi.encodeWithSelector(ICTGPlayerNFT.Admin_InvalidUpgradeAddress.selector, newImpl));
+        vm.startPrank(DEFAULT_OWNER_ADDRESS);
+        vm.expectRevert(ICTGPlayerNFT.NotAllowedToUpgrade.selector);
         zoraNFTBase.upgradeToAndCall(newImpl, "");
     }
 
@@ -511,7 +539,7 @@ contract CTGPlayerNFTTest is Test {
         vm.stopPrank();
         vm.startPrank(address(0x111));
         vm.deal(address(0x111), 0.3 ether);
-        zoraNFTBase.purchase{value: 0.2 ether + (mintFee * 2)}(2);
+        zoraNFTBase.purchase{value: 0.2 ether}(2);
         assertEq(zoraNFTBase.balanceOf(address(0x111)), 2);
         vm.stopPrank();
     }
@@ -532,7 +560,7 @@ contract CTGPlayerNFTTest is Test {
             presaleMerkleRoot: bytes32(0)
         });
         vm.prank(address(456));
-        vm.expectRevert(abi.encodeWithSignature("INVALID_ETH_AMOUNT()"));
+        vm.expectRevert(abi.encodeWithSignature("WrongValueSent(uint256,uint256)", 120000000000000000, 150000000000000000));
         zoraNFTBase.purchase{value: 0.12 ether}(1);
     }
 
@@ -552,7 +580,7 @@ contract CTGPlayerNFTTest is Test {
     function test_WithdrawNoZoraFee(uint128 amount) public setupZoraNFTBase(10) {
         vm.assume(amount > 0.01 ether);
 
-        address payable fundsRecipientTarget = payable(address(0x0));
+        address payable fundsRecipientTarget = payable(address(0x0325));
 
         vm.prank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.setFundsRecipient(fundsRecipientTarget);
@@ -683,7 +711,7 @@ contract CTGPlayerNFTTest is Test {
         vm.expectRevert(ICTGPlayerNFT.Mint_SoldOut.selector);
         vm.prank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.adminMint(address(0x1234), 2);
-        vm.expectRevert(abi.encodeWithSignature("INVALID_ETH_AMOUNT()"));
+        vm.expectRevert(ICTGPlayerNFT.Mint_SoldOut.selector);
         zoraNFTBase.purchase{value: 0.6 ether}(3);
     }
 
@@ -724,7 +752,7 @@ contract CTGPlayerNFTTest is Test {
 
         vm.deal(address(456), uint256(1) * 2);
         vm.prank(address(456));
-        vm.expectRevert(abi.encodeWithSignature("INVALID_ETH_AMOUNT()"));
+        vm.expectRevert(abi.encodeWithSignature("Mint_SoldOut()"));
         zoraNFTBase.purchase{value: 1}(1);
     }
 

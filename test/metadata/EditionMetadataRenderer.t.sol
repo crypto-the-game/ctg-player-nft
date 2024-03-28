@@ -18,6 +18,9 @@ contract IERC721OnChainDataMock {
         return saleDetailsInternal;
     }
 
+    function config() external view returns (ICTGPlayerNFT.Configuration memory) {
+        return configInternal;
+    }
 
     constructor(uint256 totalMinted, uint256 maxSupply) {
         saleDetailsInternal = ICTGPlayerNFT.SaleDetails({
