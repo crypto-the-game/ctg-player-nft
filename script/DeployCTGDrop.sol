@@ -7,6 +7,7 @@ import "forge-std/console2.sol";
 import {CTGPlayerNFT} from "../src/CTGPlayerNFT.sol";
 import {CTGPlayerNFTProxy} from "../src/CTGPlayerNFTProxy.sol";
 import {DropMetadataRenderer} from "../src/metadata/DropMetadataRenderer.sol";
+import {TransferPauserExtension} from "../src/extensions/TransferPauserExtension.sol";
 
 contract Deploy is Script {
     function run() public {
@@ -33,11 +34,23 @@ contract Deploy is Script {
             revert("Only support base testnet");
         }
 
-        address initialOwner = address(sender);
+        // TODO change to real address
+        address initialOwner;
+        address dropRenderer;
+        
+        if (block.chainid == 84532) {
+            initialOwner = address(sender);
+            dropRenderer = address(0xf643704CfB538aF53Dea5DFE9B1e795b9abf3bBf);
+        } else if (block.chainid == 8453) {
+            // todo change
+            initialOwner = address(sender);
+            dropRenderer = address(0xd1cba36d92B052079523F471Eb891563F2E5dF5C);
+        } else {
+            revert("Unsupported chain");
+        }
 
-        // for base chain
-        address dropRenderer = address(0xf643704CfB538aF53Dea5DFE9B1e795b9abf3bBf);
-        uint256 editionSize = 1000;
+        // total edition size of drop
+        uint256 editionSize = 700;
 
         bytes[] memory setupCalls = new bytes[](0);
 
@@ -56,13 +69,17 @@ contract Deploy is Script {
                     initialOwner,
                     initialOwner,
                     editionSize,
-                    10000, // 10%
+                    1000, // 10%
                     setupCalls,
                     dropRenderer,
                     metadataRendererInit
                 )
             )
         );
+
+        TransferPauserExtension transferPauserExtension = new TransferPauserExtension(proxy);
+        // CTGPlayerNFTImpl(proxy).setTransferHook(transferPauserExtension);
+        console2.log("Transfer pauser extension deployed to: ", address(transferPauserExtension));
 
         console2.log("Deployed to: ", proxy);
     }

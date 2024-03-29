@@ -143,6 +143,8 @@ interface ICTGPlayerNFT {
     /// @param renderer new metadata renderer address
     event UpdatedMetadataRenderer(address sender, IMetadataRenderer renderer);
 
+    event RoyaltySettingsUpdated(uint16 newBPS);
+
     /// @notice Admin function to update the sales configuration settings
     /// @param publicSalePrice public sale price in ether
     /// @param maxSalePurchasePerAddress Max # of purchases (public) per address allowed

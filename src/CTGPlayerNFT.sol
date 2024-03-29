@@ -189,15 +189,11 @@ contract CTGPlayerNFT is
 
         ICTGPlayerNFT.Configuration storage nftConfig = _getCTGPlayerNFTStorage().config;
 
-        if (nftConfig.royaltyBPS > MAX_ROYALTY_BPS) {
-            revert Setup_RoyaltyPercentageTooHigh(MAX_ROYALTY_BPS);
-        }
-
         // Setup nftConfig variables
         nftConfig.editionSize = _editionSize;
         nftConfig.metadataRenderer = _metadataRenderer;
-        nftConfig.royaltyBPS = _royaltyBPS;
         nftConfig.fundsRecipient = _fundsRecipient;
+        _updateRoyaltySettings(_royaltyBPS);
 
         _metadataRenderer.initializeWithData(_metadataRendererInit);
     }
@@ -358,7 +354,7 @@ contract CTGPlayerNFT is
 
     /// @notice ZORA fee is fixed now per mint
     /// @dev Gets the zora fee for amount of withdraw
-    function zoraFeeForAmount(uint256 quantity) public pure returns (address payable recipient, uint256 fee) {
+    function zoraFeeForAmount(uint256 /* quantity */) public pure returns (address payable recipient, uint256 fee) {
         recipient = payable(address(0));
         fee = 0;
     }
@@ -666,6 +662,20 @@ contract CTGPlayerNFT is
 
         _notifyMetadataUpdate();
     }
+
+    function updateRoyaltySettings(uint16 newRoyaltyBPS) external onlyAdmin {
+        _updateRoyaltySettings(newRoyaltyBPS);
+    }
+
+    function _updateRoyaltySettings(uint16 newRoyaltyBPS) internal {
+        ICTGPlayerNFT.Configuration storage nftConfig = _getCTGPlayerNFTStorage().config;
+        if (newRoyaltyBPS > MAX_ROYALTY_BPS) {
+            revert Setup_RoyaltyPercentageTooHigh(MAX_ROYALTY_BPS);
+        }
+        nftConfig.royaltyBPS = newRoyaltyBPS;
+        emit RoyaltySettingsUpdated(nftConfig.royaltyBPS);
+    }
+
 
     /// @notice Calls the metadata renderer contract to make an update and uses the EIP4906 event to notify
     /// @param data raw calldata to call the metadata renderer contract with.
@@ -978,7 +988,7 @@ contract CTGPlayerNFT is
         }
     }
 
-    function _requireCanPurchasePresale(address recipient, uint256 quantity, uint256 maxQuantity) internal {
+    function _requireCanPurchasePresale(address recipient, uint256 quantity, uint256 maxQuantity) internal view {
         if (_numberMinted(recipient) + quantity > maxQuantity) {
             revert Presale_TooManyForAddress();
         }

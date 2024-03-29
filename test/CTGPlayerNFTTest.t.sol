@@ -137,24 +137,29 @@ contract CTGPlayerNFTTest is Test {
             _metadataRendererInit: ""        });
     }
 
-    // Uncomment when this bug is fixed.
-    //
-    // function test_InitFailsTooHighRoyalty() public {
-    //     bytes[] memory setupCalls = new bytes[](0);
-    //     vm.expectRevert(abi.encodeWithSelector(ICTGPlayerNFT.Setup_RoyaltyPercentageTooHigh.selector, 8000));
-    //     zoraNFTBase.initialize({
-    //         _contractName: "Test NFT",
-    //         _contractSymbol: "TNFT",
-    //         _initialOwner: DEFAULT_OWNER_ADDRESS,
-    //         _fundsRecipient: payable(DEFAULT_FUNDS_RECIPIENT_ADDRESS),
-    //         _editionSize: 10,
-    //         // 80% royalty is above 50% max.
-    //         _royaltyBPS: 8000,
-    //         _setupCalls: setupCalls,
-    //         _metadataRenderer: dummyRenderer,
-    //         _metadataRendererInit: ""
-    //     });
-    // }
+    function test_InitFailsTooHighRoyalty() public {
+        bytes[] memory setupCalls = new bytes[](0);
+        vm.expectRevert(abi.encodeWithSelector(ICTGPlayerNFT.Setup_RoyaltyPercentageTooHigh.selector, 5000));
+        zoraNFTBase.initialize({
+            _contractName: "Test NFT",
+            _contractSymbol: "TNFT",
+            _initialOwner: DEFAULT_OWNER_ADDRESS,
+            _fundsRecipient: payable(DEFAULT_FUNDS_RECIPIENT_ADDRESS),
+            _editionSize: 10,
+            // 80% royalty is above 50% max.
+            _royaltyBPS: 8000,
+            _setupCalls: setupCalls,
+            _metadataRenderer: dummyRenderer,
+            _metadataRendererInit: ""
+        });
+    }
+
+    function test_RoyaltyUpdates() public setupZoraNFTBase(1) {
+        vm.startPrank(DEFAULT_OWNER_ADDRESS);
+        zoraNFTBase.updateRoyaltySettings(1200); // 12%
+        (address recipient, uint256 amount) = zoraNFTBase.royaltyInfo(1, 1 ether);
+        assertEq(amount, 0.12 ether);
+    }
 
     function test_IsAdminGetter() public setupZoraNFTBase(1) {
         assertTrue(zoraNFTBase.isAdmin(DEFAULT_OWNER_ADDRESS));
@@ -246,7 +251,6 @@ contract CTGPlayerNFTTest is Test {
             presaleMerkleRoot: bytes32(0)
         });
 
-        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(purchaseQuantity);
         vm.deal(address(456), 1 ether);
         vm.prank(address(456));
         vm.expectRevert(abi.encodeWithSignature("WrongValueSent(uint256,uint256)", 1000000000000000000, 2000000000000000000));
@@ -271,8 +275,7 @@ contract CTGPlayerNFTTest is Test {
             presaleMerkleRoot: bytes32(0)
         });
 
-        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(purchaseQuantity);
-        uint256 paymentAmount = uint256(salePrice) * purchaseQuantity + zoraFee;
+        uint256 paymentAmount = uint256(salePrice) * purchaseQuantity;
         vm.deal(address(456), paymentAmount);
         vm.prank(address(456));
         vm.expectEmit(true, true, true, true);
@@ -326,8 +329,7 @@ contract CTGPlayerNFTTest is Test {
             presaleMerkleRoot: bytes32(0)
         });
 
-        (, uint256 zoraFee) = zoraNFTBase.zoraFeeForAmount(purchaseQuantity);
-        uint256 paymentAmount = uint256(salePrice) * purchaseQuantity + zoraFee;
+        uint256 paymentAmount = uint256(salePrice) * purchaseQuantity;
 
         address minter = makeAddr("minter");
         address recipient = makeAddr("recipient");

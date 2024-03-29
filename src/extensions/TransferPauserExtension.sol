@@ -45,7 +45,7 @@ contract TransferPauserExtension is ITransferHookExtension, ERC165 {
         }
     }
 
-    function revokePlayersEliminated(uint256[] memory players) external {
+    function setPlayerBackInGame(uint256[] memory players) external {
         _requireGameControllerRole();
         emit PlayersSetEliminatedAt(msg.sender, players, 0);
         for (uint256 i = 0; i < players.length; i++) {
