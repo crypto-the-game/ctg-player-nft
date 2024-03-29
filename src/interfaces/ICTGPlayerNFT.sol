@@ -18,6 +18,8 @@ interface ICTGPlayerNFT {
 
     error ZeroFundsRecipientNotAllowed();
 
+    error Purchase_SendFundsFailure();
+
     /// @notice Only admin can access this function
     error Access_OnlyAdmin();
     /// @notice Missing the given role or admin access
@@ -143,7 +145,7 @@ interface ICTGPlayerNFT {
     /// @param renderer new metadata renderer address
     event UpdatedMetadataRenderer(address sender, IMetadataRenderer renderer);
 
-    event RoyaltySettingsUpdated(uint16 newBPS);
+    event RoyaltySettingsUpdated(address newRecipient, uint16 newBPS);
 
     /// @notice Admin function to update the sales configuration settings
     /// @param publicSalePrice public sale price in ether

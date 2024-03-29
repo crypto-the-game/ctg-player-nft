@@ -56,6 +56,7 @@ contract CTGPlayerNFTTest is Test {
             _initialOwner: DEFAULT_OWNER_ADDRESS,
             _fundsRecipient: payable(DEFAULT_FUNDS_RECIPIENT_ADDRESS),
             _editionSize: editionSize,
+            _royaltyRecipient: DEFAULT_OWNER_ADDRESS,
             _royaltyBPS: 800,
             _setupCalls: setupCalls,
             _metadataRenderer: dummyRenderer,
@@ -73,6 +74,7 @@ contract CTGPlayerNFTTest is Test {
             _initialOwner: DEFAULT_OWNER_ADDRESS,
             _fundsRecipient: payable(DEFAULT_FUNDS_RECIPIENT_ADDRESS),
             _editionSize: editionSize,
+            _royaltyRecipient: DEFAULT_OWNER_ADDRESS,
             _royaltyBPS: 800,
             _setupCalls: setupCalls,
             _metadataRenderer: dummyRenderer,
@@ -90,18 +92,14 @@ contract CTGPlayerNFTTest is Test {
         zora = makeAddr("zora");
 
         vm.prank(DEFAULT_ZORA_DAO_ADDRESS);
-        impl = address(
-            new CTGPlayerNFT()
-        );
+        impl = address(new CTGPlayerNFT());
         address payable newDrop = payable(address(new CTGPlayerNFTProxy(impl, "")));
         zoraNFTBase = CTGPlayerNFT(newDrop);
     }
 
     modifier withFactory() {
         vm.prank(DEFAULT_ZORA_DAO_ADDRESS);
-        impl = address(
-            new CTGPlayerNFT()
-        );
+        impl = address(new CTGPlayerNFT());
         address payable newDrop = payable(address(new CTGPlayerNFTProxy(impl, "")));
         zoraNFTBase = CTGPlayerNFT(newDrop);
 
@@ -131,10 +129,12 @@ contract CTGPlayerNFTTest is Test {
             _initialOwner: DEFAULT_OWNER_ADDRESS,
             _fundsRecipient: payable(DEFAULT_FUNDS_RECIPIENT_ADDRESS),
             _editionSize: 10,
+            _royaltyRecipient: DEFAULT_OWNER_ADDRESS,
             _royaltyBPS: 800,
             _setupCalls: setupCalls,
             _metadataRenderer: dummyRenderer,
-            _metadataRendererInit: ""        });
+            _metadataRendererInit: ""
+        });
     }
 
     function test_InitFailsTooHighRoyalty() public {
@@ -147,6 +147,7 @@ contract CTGPlayerNFTTest is Test {
             _fundsRecipient: payable(DEFAULT_FUNDS_RECIPIENT_ADDRESS),
             _editionSize: 10,
             // 80% royalty is above 50% max.
+            _royaltyRecipient: DEFAULT_OWNER_ADDRESS,
             _royaltyBPS: 8000,
             _setupCalls: setupCalls,
             _metadataRenderer: dummyRenderer,
@@ -156,9 +157,10 @@ contract CTGPlayerNFTTest is Test {
 
     function test_RoyaltyUpdates() public setupZoraNFTBase(1) {
         vm.startPrank(DEFAULT_OWNER_ADDRESS);
-        zoraNFTBase.updateRoyaltySettings(1200); // 12%
+        zoraNFTBase.updateRoyaltySettings(address(0x443), 1200); // 12%
         (address recipient, uint256 amount) = zoraNFTBase.royaltyInfo(1, 1 ether);
         assertEq(amount, 0.12 ether);
+        assertEq(recipient, address(0x443));
     }
 
     function test_IsAdminGetter() public setupZoraNFTBase(1) {
@@ -176,9 +178,12 @@ contract CTGPlayerNFTTest is Test {
     function test_NoRoyaltyInfoNoFundsRecipientAddress() public setupZoraNFTBase(10) {
         vm.prank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.setFundsRecipient(payable(address(0)));
+        vm.prank(DEFAULT_OWNER_ADDRESS);
+        zoraNFTBase.updateRoyaltySettings(address(0), 1500);
         // assert 800 royaltyAmount or 8%
-        (, uint256 royaltyAmount) = zoraNFTBase.royaltyInfo(10, 1 ether);
+        (address royaltyRecipient, uint256 royaltyAmount) = zoraNFTBase.royaltyInfo(10, 1 ether);
         assertEq(royaltyAmount, 0 ether);
+        assertEq(royaltyRecipient, address(0));
     }
 
     function test_PurchaseFreeMint(uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
@@ -234,8 +239,8 @@ contract CTGPlayerNFTTest is Test {
         assertEq(zoraNFTBase.saleDetails().totalMinted, purchaseQuantity);
         require(zoraNFTBase.ownerOf(1) == address(456), "owner is wrong for new minted token");
 
-        assertEq(address(zoraNFTBase).balance, paymentAmount - zoraFee);
-        assertEq(address(zoraNFTBase).balance, uint256(salePrice) * uint256(purchaseQuantity));
+        assertEq(address(zoraNFTBase).balance, 0);
+        assertEq(address(DEFAULT_FUNDS_RECIPIENT_ADDRESS).balance, uint256(salePrice) * uint256(purchaseQuantity));
     }
 
     function test_PurchaseWithValueWrongPrice() public setupZoraNFTBase(100) {
@@ -301,19 +306,12 @@ contract CTGPlayerNFTTest is Test {
         vm.deal(collector, 10000 ether);
         vm.prank(collector);
         vm.expectRevert(abi.encodeWithSignature("Mint_SoldOut()"));
-        zoraNFTBase.purchaseWithComment{value: salePrice * 23}({
-            quantity: 23, 
-            comment: "testing"
-        });
+        zoraNFTBase.purchaseWithComment{value: salePrice * 23}({quantity: 23, comment: "testing"});
 
         vm.prank(collector);
-        zoraNFTBase.purchaseWithComment{value: salePrice * 10}({
-            quantity: 10, 
-            comment: "testing"
-        });
+        zoraNFTBase.purchaseWithComment{value: salePrice * 10}({quantity: 10, comment: "testing"});
 
         assertEq(zoraNFTBase.balanceOf(collector), 10);
-
     }
 
     function test_PurchaseWithRecipient(uint64 salePrice, uint32 purchaseQuantity) public setupZoraNFTBase(purchaseQuantity) {
@@ -397,9 +395,7 @@ contract CTGPlayerNFTTest is Test {
     }
 
     function test_UpgradeApproved() public setupZoraNFTBase(10) {
-        address newImpl = address(
-            new CTGPlayerNFT()
-        );
+        address newImpl = address(new CTGPlayerNFT());
 
         vm.startPrank(DEFAULT_OWNER_ADDRESS);
         zoraNFTBase.grantRole(zoraNFTBase.UPGRADER_ROLE(), DEFAULT_OWNER_ADDRESS);
@@ -487,7 +483,10 @@ contract CTGPlayerNFTTest is Test {
         calls[1] = abi.encodeWithSelector(ICTGPlayerNFT.adminMint.selector, address(0x123), 3);
 
         vm.expectRevert(
-            abi.encodeWithSelector(ICTGPlayerNFT.Access_MissingRoleOrAdmin.selector, bytes32(0xf0887ba65ee2024ea881d91b74c2450ef19e1557f03bed3ea9f16b037cbe2dc9))
+            abi.encodeWithSelector(
+                ICTGPlayerNFT.Access_MissingRoleOrAdmin.selector,
+                bytes32(0xf0887ba65ee2024ea881d91b74c2450ef19e1557f03bed3ea9f16b037cbe2dc9)
+            )
         );
         zoraNFTBase.multicall(calls);
 

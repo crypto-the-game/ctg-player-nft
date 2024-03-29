@@ -152,6 +152,7 @@ contract CTGPlayerNFT is
     ///  @param _initialOwner User that owns and can mint the edition, gets royalty and sales payouts and can update the base url if needed.
     ///  @param _fundsRecipient Wallet/user that receives funds from sale
     ///  @param _editionSize Number of editions that can be minted in total. If type(uint64).max, unlimited editions can be minted as an open edition.
+    ///  @param _royaltyRecipient BPS of the royalty set on the contract. Can be 0 for no royalty.
     ///  @param _royaltyBPS BPS of the royalty set on the contract. Can be 0 for no royalty.
     ///  @param _setupCalls Bytes-encoded list of setup multicalls
     ///  @param _metadataRenderer Renderer contract to use
@@ -162,6 +163,7 @@ contract CTGPlayerNFT is
         address _initialOwner,
         address payable _fundsRecipient,
         uint64 _editionSize,
+        address _royaltyRecipient,
         uint16 _royaltyBPS,
         bytes[] calldata _setupCalls,
         IMetadataRenderer _metadataRenderer,
@@ -193,7 +195,7 @@ contract CTGPlayerNFT is
         nftConfig.editionSize = _editionSize;
         nftConfig.metadataRenderer = _metadataRenderer;
         nftConfig.fundsRecipient = _fundsRecipient;
-        _updateRoyaltySettings(_royaltyBPS);
+        _updateRoyaltySettings(_royaltyRecipient, _royaltyBPS);
 
         _metadataRenderer.initializeWithData(_metadataRendererInit);
     }
@@ -313,11 +315,15 @@ contract CTGPlayerNFT is
     /// @dev Get royalty information for token
     /// @param _salePrice Sale price for the token
     function royaltyInfo(uint256, uint256 _salePrice) external view override returns (address receiver, uint256 royaltyAmount) {
-        ICTGPlayerNFT.Configuration storage nftConfig = _getCTGPlayerNFTStorage().config;
-        if (nftConfig.fundsRecipient == address(0)) {
-            return (nftConfig.fundsRecipient, 0);
+        CTGPlayerNFTStorage storage playerNFTStorage = _getCTGPlayerNFTStorage();
+        address royaltyRecipient = playerNFTStorage.royaltyRecipient;
+        if (royaltyRecipient == address(0)) {
+            royaltyRecipient = playerNFTStorage.config.fundsRecipient;
         }
-        return (nftConfig.fundsRecipient, (_salePrice * nftConfig.royaltyBPS) / 10_000);
+        if (royaltyRecipient == address(0)) {
+            return (address(0), 0);
+        }
+        return (royaltyRecipient, (_salePrice * playerNFTStorage.config.royaltyBPS) / 10_000);
     }
 
     /// @notice Sale details
@@ -415,6 +421,8 @@ contract CTGPlayerNFT is
 
         _emitSaleEvents(_msgSender(), recipient, quantity, salePrice, firstMintedTokenId, comment);
 
+        _transferFundsToFundsRecipient(msg.value);
+
         return firstMintedTokenId;
     }
 
@@ -489,6 +497,8 @@ contract CTGPlayerNFT is
         uint256 firstMintedTokenId = _lastMintedTokenId() - quantity;
 
         _emitSaleEvents(msg.sender, recipient, quantity, pricePerToken, firstMintedTokenId, comment);
+
+        _transferFundsToFundsRecipient(msg.value);
 
         return firstMintedTokenId;
     }
@@ -663,17 +673,19 @@ contract CTGPlayerNFT is
         _notifyMetadataUpdate();
     }
 
-    function updateRoyaltySettings(uint16 newRoyaltyBPS) external onlyAdmin {
-        _updateRoyaltySettings(newRoyaltyBPS);
+    function updateRoyaltySettings(address newRecipient, uint16 newRoyaltyBPS) external onlyAdmin {
+        _updateRoyaltySettings(newRecipient, newRoyaltyBPS);
     }
 
-    function _updateRoyaltySettings(uint16 newRoyaltyBPS) internal {
-        ICTGPlayerNFT.Configuration storage nftConfig = _getCTGPlayerNFTStorage().config;
+    function _updateRoyaltySettings(address newRecipient, uint16 newRoyaltyBPS) internal {
+        CTGPlayerNFTStorage storage nftStorage = _getCTGPlayerNFTStorage();
         if (newRoyaltyBPS > MAX_ROYALTY_BPS) {
             revert Setup_RoyaltyPercentageTooHigh(MAX_ROYALTY_BPS);
         }
-        nftConfig.royaltyBPS = newRoyaltyBPS;
-        emit RoyaltySettingsUpdated(nftConfig.royaltyBPS);
+        nftStorage.config.royaltyBPS = newRoyaltyBPS;
+        nftStorage.royaltyRecipient = newRecipient;
+        
+        emit RoyaltySettingsUpdated(nftStorage.royaltyRecipient, nftStorage.config.royaltyBPS);
     }
 
 
@@ -858,6 +870,21 @@ contract CTGPlayerNFT is
 
         // Emit event for indexing
         emit FundsWithdrawn(_msgSender(), fundsRecipient, funds, address(0), 0);
+    }
+
+    function _transferFundsToFundsRecipient(uint256 amount) internal {
+        address payable fundsRecipient = _getCTGPlayerNFTStorage().config.fundsRecipient;
+
+        if (fundsRecipient == address(0)) {
+            // Force withdraw in this case
+            return;
+        }
+
+        // Payout recipient if funds exist.
+        (bool successFunds, ) = fundsRecipient.call{value: amount, gas: FUNDS_SEND_GAS_LIMIT}("");
+        if (!successFunds) {
+            revert Purchase_SendFundsFailure();
+        }
     }
 
     function _verifyWithdrawAccess(address msgSender) internal view {

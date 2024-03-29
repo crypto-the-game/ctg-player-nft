@@ -69,6 +69,7 @@ contract Deploy is Script {
                     initialOwner,
                     initialOwner,
                     editionSize,
+                    initialOwner,
                     1000, // 10%
                     setupCalls,
                     dropRenderer,

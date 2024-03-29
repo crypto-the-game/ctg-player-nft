@@ -12,6 +12,8 @@ struct CTGPlayerNFTStorage {
 
     /// @notice Extension for transfer hook across the whole contract. Optional – disabled if set to address(0).
     address transferHookExtension;
+
+    address royaltyRecipient;
 }
 
 contract CTGPlayerNFTStorageBase {
