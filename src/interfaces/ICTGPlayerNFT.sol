@@ -20,6 +20,8 @@ interface ICTGPlayerNFT {
 
     error Purchase_SendFundsFailure();
 
+    function setTransferHook(address newTransferHook) external;
+
     /// @notice Only admin can access this function
     error Access_OnlyAdmin();
     /// @notice Missing the given role or admin access

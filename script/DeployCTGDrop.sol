@@ -8,80 +8,65 @@ import {CTGPlayerNFT} from "../src/CTGPlayerNFT.sol";
 import {CTGPlayerNFTProxy} from "../src/CTGPlayerNFTProxy.sol";
 import {DropMetadataRenderer} from "../src/metadata/DropMetadataRenderer.sol";
 import {TransferPauserExtension} from "../src/extensions/TransferPauserExtension.sol";
+import {PermissionedDeployer, DeploymentSettings} from "../src/deploy/PermissionedDeployer.sol";
 
 contract Deploy is Script {
+    uint256 constant BASE_SEPOLIA = 84532;
+    uint256 constant BASE_MAINNET = 8453;
+
+    function getConfigForChain() internal view returns (DeploymentSettings memory) {
+        if (block.chainid == BASE_SEPOLIA) {
+            return
+                DeploymentSettings({
+                    deployer: address(0x07966725a7928083bA85e75276518561D0c28B19),
+                    initialOwner: address(0x07966725a7928083bA85e75276518561D0c28B19),
+                    fundsRecipient: address(0x07966725a7928083bA85e75276518561D0c28B19),
+                    royaltyRecipient: address(0x07966725a7928083bA85e75276518561D0c28B19),
+                    contractName: string("CTGS2TEST"),
+                    contractSymbol: string("CTGS2TEST"),
+                    royaltyBPS: 1500,
+                    editionSize: 800,
+                    dropRenderer: address(0xf643704CfB538aF53Dea5DFE9B1e795b9abf3bBf),
+                    metadataRendererInit: abi.encode(
+                        "https://www.721.so/api/example/metadata/", // initial base uri,
+                        "https://www.721.so/api/example/metadata/1" // initial contract uri
+                    )
+                });
+        }
+        if (block.chainid == BASE_MAINNET) {
+            return
+                DeploymentSettings({
+                    deployer: address(0xbf52f76E016C87cBC321E1688C762F53B4d2Ae0b /* iain dev */),
+                    initialOwner: address(0x78E4318F5B7B4eea01646Cbb37Ac048Cd4cEdd36),
+                    fundsRecipient: address(0x8A8F49eF12333C1eF957DA17927A8427D38d67Fb),
+                    royaltyRecipient: address(0x78E4318F5B7B4eea01646Cbb37Ac048Cd4cEdd36),
+                    contractName: string("CTTTG2"),
+                    contractSymbol: string("CTTTG2"),
+                    royaltyBPS: 1500,
+                    editionSize: 800,
+                    dropRenderer: address(0xd1cba36d92B052079523F471Eb891563F2E5dF5C),
+                    metadataRendererInit: abi.encode(
+                        "https://www.721.so/api/example/metadata/", // initial base uri,
+                        "https://www.721.so/api/example/metadata/1" // initial contract uri
+                    )
+                });
+        }
+        revert("chain is not configured");
+    }
+
     function run() public {
         address sender = vm.envAddress("SENDER");
         vm.startBroadcast(sender);
 
         address impl = address(new CTGPlayerNFT());
 
-        /**
-        
-            string memory _contractName,
-            string memory _contractSymbol,
-            address _initialOwner,
-            address payable _fundsRecipient,
-            uint64 _editionSize,
-            uint16 _royaltyBPS,
-            bytes[] calldata _setupCalls,
-            IMetadataRenderer _metadataRenderer,
-            bytes memory _metadataRendererInit
-        
-         */
+        DeploymentSettings memory deploymentSettings = getConfigForChain();
 
-        if (block.chainid != 84532) {
-            revert("Only support base testnet");
+        PermissionedDeployer permissionedDeployer = new PermissionedDeployer(deploymentSettings, impl);
+
+        console2.log("Deployed Permissioned Deployer to: ", address(permissionedDeployer));
+        if (deploymentSettings.deployer == sender) {
+            permissionedDeployer.deploy();
         }
-
-        // TODO change to real address
-        address initialOwner;
-        address dropRenderer;
-        
-        if (block.chainid == 84532) {
-            initialOwner = address(sender);
-            dropRenderer = address(0xf643704CfB538aF53Dea5DFE9B1e795b9abf3bBf);
-        } else if (block.chainid == 8453) {
-            // todo change
-            initialOwner = address(sender);
-            dropRenderer = address(0xd1cba36d92B052079523F471Eb891563F2E5dF5C);
-        } else {
-            revert("Unsupported chain");
-        }
-
-        // total edition size of drop
-        uint256 editionSize = 700;
-
-        bytes[] memory setupCalls = new bytes[](0);
-
-        bytes memory metadataRendererInit = abi.encode(
-            "https://www.721.so/api/example/metadata/", // initial base uri,
-            "https://www.721.so/api/example/metadata/1" // initial contract uri
-        );
-
-        address proxy = address(
-            new CTGPlayerNFTProxy(
-                impl,
-                abi.encodeWithSelector(
-                    CTGPlayerNFT.initialize.selector,
-                    "CTGPlayerDemo Season 2", // contractName
-                    "CTGPS2", // contractSymbol
-                    initialOwner,
-                    initialOwner,
-                    editionSize,
-                    initialOwner,
-                    1000, // 10%
-                    setupCalls,
-                    dropRenderer,
-                    metadataRendererInit
-                )
-            )
-        );
-
-        TransferPauserExtension transferPauserExtension = new TransferPauserExtension(proxy);
-        // CTGPlayerNFTImpl(proxy).setTransferHook(transferPauserExtension);
-        console2.log("Transfer pauser extension deployed to: ", address(transferPauserExtension));
-
-        console2.log("Deployed to: ", proxy);
     }
 }

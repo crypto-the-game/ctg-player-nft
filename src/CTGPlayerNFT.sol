@@ -259,7 +259,7 @@ contract CTGPlayerNFT is
     /// @notice Admin function to set the NFT transfer hook, useful for metadata and non-transferrable NFTs.
     /// @dev Set to 0 to disable, address to enable transfer hook.
     /// @param newTransferHook new transfer hook to receive before token transfer events
-    function setTransferHook(address newTransferHook) public onlyAdmin {
+    function setTransferHook(address newTransferHook) external onlyAdmin {
         if (newTransferHook != address(0) && !ITransferHookExtension(newTransferHook).supportsInterface(type(ITransferHookExtension).interfaceId)) {
             revert InvalidTransferHook();
         }
